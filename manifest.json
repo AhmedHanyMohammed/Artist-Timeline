@@ -1,0 +1,11 @@
+{
+  "name": "Artist Discography Timeline",
+  "description": "Adds a Timeline view to artist discography (horizontal/vertical) while preserving hover play, highlight, and images.",
+  "main": "artistTimeline.js",
+  "authors": [
+    { "name": "AhmedHanyMohammed", "url": "https://github.com/AhmedHanyMohammed" }
+  ],
+  "tags": ["spicetify", "extension", "ui", "timeline", "artist", "discography"],
+  "preview": "preview.png",
+  "readme": "README.md"
+}
