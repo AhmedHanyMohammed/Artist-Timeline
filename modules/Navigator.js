@@ -62,13 +62,13 @@ class Navigator {
 
     // Removes the element in the DOM that we created
     cleanup() {
-        if(this.state.timelinecontainer)
-            this.state.timelinecontainer.remove();
+        if (this.state.timelineContainer)
+            this.state.timelineContainer.remove();
 
-        if(this.state.injectedButton)
+        if (this.state.injectedButton)
             this.state.injectedButton.remove();
-
-        if(this.state.originalGridContainer)
+        // Only restore if we actually hid it
+        if (this.state.originalGridContainer && this.state.isTimelineActive)
             this.state.originalGridContainer.style.display = '';
 
         this.state.reset();

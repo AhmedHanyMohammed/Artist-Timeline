@@ -2,6 +2,13 @@
 // AUTHOR: AhmedHanyMohammed
 // DESCRIPTION: Visualize artist discography as an interactive timeline
 
+import Config from './modules/Config.js';
+import State from './modules/State.js';
+import Navigator from './modules/Navigator.js';
+import DOMUtils from './modules/DOMUtils.js';
+
+// Initialize the extension
+
 async function artistTimeline(){
     function checkSpicetifyReady() {
         const required = {
@@ -28,11 +35,39 @@ async function artistTimeline(){
 
     async function onArtistPageLoad(artistId) {
         try{
-            await waitForDiscography();
-            // phase 3 will continue from here
+            const discographyContainer = await waitForDiscography();
+
+            // Inject Timeline button
+            const controlsBar = discographyContainer.querySelector(
+                '[role="controls"], .view-header-controls, [class*="filterButton"]'
+            );
+
+            if (controlsBar)
+                injectTimelineButton(controlsBar);
+
+            // Extract releases from DOM
+            const releases = extractReleaseFromDOM(discographyContainer);
+
+            if(state.currentView === 'timeline')
+                renderTimelineView(releases);
         } catch (error) {
             console.error("Artist Timeline: Error loading discography", error);
         }
+    }
+
+    function injectTimelineButton(controlsBar) {
+        const button = document.createElement('button');
+        button.className = 'timeline-button';
+        button.textContent = 'Timeline';
+        button.setAttribute('aria-controls', 'Timeline');
+
+        button.addEventListener('click', () => {
+            // Toggle timeline view
+            state.saveViewPref('timeline');
+            switchToTimelineView();
+        });
+        controlsBar.appendChild(button);
+        state.update({injectedButton: button});
     }
 
     async function waitForDiscography() {
@@ -62,7 +97,7 @@ async function artistTimeline(){
             '[data-testid="card"] a[href*="/album/"], a[href*="/album/"]'
         ));
 
-        const player = Spicertify?.Player;
+        const player = Spicetify?.Player;
         const playingAlbumUri = player?.data?.item?.album?.uri || '';
 
         const releases = cardAnchors.map(anchor => {
@@ -154,3 +189,5 @@ async function artistTimeline(){
         navigator.cleanup();
     });
 }
+
+artistTimeline();

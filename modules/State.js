@@ -3,13 +3,13 @@ class State {
         // View preferences key
         this.VIEW_PREF_KEY = 'artist-timeline-view-preference';
 
-        this. currentArtistId = null;
-        this. currentView = this.loadViewPref();
+        this.currentArtistId = null;
+        this.currentView = this.loadViewPref();
         this.isTimelineActive = false;
-        this. timelinecontainer = null;
+        this.timelineContainer = null;
         this.originalGridContainer = null;
-        this. injectedButton = null;
-        this. lastPathname = null;
+        this.injectedButton = null;
+        this.lastPathname = null;
     }
 
     loadViewPref() {
@@ -29,7 +29,7 @@ class State {
         this.currentArtistId = null;
         this.currentView = this.loadViewPref();
         this.isTimelineActive = false;
-        this.timelinecontainer = null;
+        this.timelineContainer = null;
         this.originalGridContainer = null;
         this.injectedButton = null;
         this.lastPathname = null;
