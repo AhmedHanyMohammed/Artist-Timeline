@@ -1,6 +1,14 @@
 {
   "name": "Artist Discography Timeline",
-  "description": "Adds a Timeline view to artist discography (horizontal/vertical) while preserving hover play, highlight, and images.",
+  "description": "Adds a Timeline view to artist discography horizontal/vertical.",
+  "include": [
+    "modules/Config.js",
+    "modules/State.js",
+    "modules/DOMUtils.js",
+    "modules/Navigator.js",
+    "modules/DataExtractor.js",
+    "modules/TimelineCore.js"
+  ],
   "main": "artistTimeline.js",
   "authors": [
     { "name": "AhmedHanyMohammed", "url": "https://github.com/AhmedHanyMohammed" }

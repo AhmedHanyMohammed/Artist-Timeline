@@ -2,14 +2,30 @@
 // AUTHOR: AhmedHanyMohammed
 // DESCRIPTION: Visualize artist discography as an interactive timeline
 
-import Config from './modules/Config.js';
-import State from './modules/State.js';
-import Navigator from './modules/Navigator.js';
-import DOMUtils from './modules/DOMUtils.js';
+/**
+ * Main entry point for the Artist Timeline extension
+ *
+ * This file orchestrates all modules and initializes the extension.
+ * It's kept minimal - all logic is delegated to specialized modules.
+ *
+ * Architecture:
+ * - Config: Manages user settings (orientation, card size, etc.)
+ * - State: Tracks current state (artist ID, view mode, DOM references)
+ * - DOMUtils: Generic DOM helper utilities
+ * - Navigator: Detects artist page navigation
+ * - DataExtractor: Extracts release data from DOM/GraphQL
+ * - TimelineCore: Handles all timeline rendering and interactions
+ */
 
-// Initialize the extension
+(async function main() {
+    // ========================================
+    // PHASE 1: Wait for Spicetify to be ready
+    // ========================================
 
-async function artistTimeline(){
+    /**
+     * Check if all required Spicetify APIs are available
+     * @returns {string[]} Array of missing component names
+     */
     function checkSpicetifyReady() {
         const required = {
             'Spicetify': typeof Spicetify !== 'undefined',
@@ -17,177 +33,108 @@ async function artistTimeline(){
             'Player': Spicetify?.Player,
             'CosmosAsync': Spicetify?.CosmosAsync,
         };
+
         const missing = Object.entries(required)
             .filter(([name, exists]) => !exists)
             .map(([name]) => name);
+
         return missing;
     }
 
-    const missingComponent = checkSpicetifyReady();
-    if (missingComponent.length){
-        console.log(`Artist Timeline: Waiting for Spicetify to be ready. Missing: ${missingComponent.join(', ')}`);
-        setTimeout(artistTimeline, 100);
+    // Retry until Spicetify is ready
+    const missingComponents = checkSpicetifyReady();
+    if (missingComponents.length) {
+        console.log(`[Timeline] Waiting for Spicetify. Missing: ${missingComponents.join(', ')}`);
+        setTimeout(main, 100);
         return;
     }
 
+
+    // ========================================
+    // PHASE 2: Initialize all modules
+    // ========================================
+
     const config = new Config();
     const state = new State();
+    const dataExtractor = new DataExtractor();
+    const timelineCore = new TimelineCore(config, state);
 
-    async function onArtistPageLoad(artistId) {
-        try{
+    // ========================================
+    // PHASE 3: Set up artist page detection
+    // ========================================
+
+    /**
+     * Called when user navigates to an artist page
+     * @param {string} artistId - Spotify artist ID
+     */
+    async function onArtistPageDetected(artistId) {
+        console.log(`[Timeline] Artist page detected: ${artistId}`);
+
+        try {
+            // Wait for discography section to appear in DOM
             const discographyContainer = await waitForDiscography();
+            console.log('[Timeline] ✓ Discography container found');
 
-            // Inject Timeline button
-            const controlsBar = discographyContainer.querySelector(
-                '[role="controls"], .view-header-controls, [class*="filterButton"]'
-            );
+            // Initialize timeline (button injection + optional rendering)
+            await timelineCore.initialize(discographyContainer, dataExtractor);
+            console.log('[Timeline] ✓ Timeline initialized');
 
-            if (controlsBar)
-                injectTimelineButton(controlsBar);
-
-            // Extract releases from DOM
-            const releases = extractReleaseFromDOM(discographyContainer);
-
-            if(state.currentView === 'timeline')
-                renderTimelineView(releases);
         } catch (error) {
-            console.error("Artist Timeline: Error loading discography", error);
+            console.error('[Timeline] ✗ Error initializing timeline:', error);
+            Spicetify.showNotification('Timeline failed to load', true);
         }
     }
 
-    function injectTimelineButton(controlsBar) {
-        const button = document.createElement('button');
-        button.className = 'timeline-button';
-        button.textContent = 'Timeline';
-        button.setAttribute('aria-controls', 'Timeline');
-
-        button.addEventListener('click', () => {
-            // Toggle timeline view
-            state.saveViewPref('timeline');
-            switchToTimelineView();
-        });
-        controlsBar.appendChild(button);
-        state.update({injectedButton: button});
-    }
-
+    /**
+     * Wait for discography section to load using multiple selector fallbacks
+     * @returns {Promise<HTMLElement>} Discography container element
+     * @throws {Error} If no container found after trying all selectors
+     */
     async function waitForDiscography() {
-        const selector = [
-            '[data-testid="artist-page-discography"]',
-            '.main-gridController-gridContainer',
-            '[class*="discography"]',
-            'main[role="main"]'
+        const selectors = [
+            '[data-testid="artist-page-discography"]',  // Primary selector
+            '.main-gridController-gridContainer',        // Fallback 1
+            '[class*="discography"]',                    // Fallback 2
+            'main[role="main"]'                          // Fallback 3 (broadest)
         ];
-        for (const sel of selector) {
+
+        for (const selector of selectors) {
             try {
-                const element = await DOMUtils.waitForElement(sel, 3000);
+                const element = await DOMUtils.waitForElement(selector, 3000);
                 state.update({ originalGridContainer: element });
+                console.log(`[Timeline] Found container with: ${selector}`);
                 return element;
-            } catch (_e) {
+            } catch (_) {
+                // Try next selector
                 continue;
             }
         }
-        throw new Error('Artist Timeline: Discography section not found');
+
+        throw new Error('Discography section not found after trying all selectors');
     }
 
-    function extractReleaseFromDOM(root){
-        if(!root) return [];
+    // ========================================
+    // PHASE 4: Start navigation listener
+    // ========================================
 
-        const cardAnchors = Array.from(root.querySelectorAll(
-            // Typical card link under discography
-            '[data-testid="card"] a[href*="/album/"], a[href*="/album/"]'
-        ));
-
-        const player = Spicetify?.Player;
-        const playingAlbumUri = player?.data?.item?.album?.uri || '';
-
-        const releases = cardAnchors.map(anchor => {
-            const href = anchor.getAttribute('href') || '';
-            const idMatch = href.match(/\/album\/([a-zA-Z0-9]+)/);
-            const albumId = idMatch ? idMatch[1] : null;
-            const uri = albumId ? `spotify:album:${albumId}` : null;
-
-            const titleNode =
-                anchor.querySelector('[data-testid="entity-title"]') ||
-                anchor.querySelector('[dir]') ||
-                anchor.querySelector('span') ||
-                anchor;
-
-            const name = (titleNode?.textContent || '').trim();
-
-            // Image
-            const img = anchor.querySelector('img');
-            const image = img?.getAttribute('src') || img?.getAttribute('data-src') || '';
-
-            // Type (Album, Single, Compilation)
-            const aria = anchor.getAttribute('aria-label') || '';
-            let type = /single/i.test(aria) ? 'Single' :
-                       /compilation/i.test(aria) ? 'Compilation' :
-                       'Album';
-            // Try tiny text chips
-            const typeChip = anchor.querySelector('[data-testid*="subtitle"], [class*="TypeBadge"], small, .Type__TypeElement');
-            if (typeChip) {
-                const t = typeChip.textContent.toLowerCase();
-                if (t.includes('single')) type = 'single';
-                else if (t.includes('compilation')) type = 'compilation';
-                else if (t.includes('album')) type = 'album';
-            }
-
-            // Date — try <time> or year-like fragments
-            let dateStr = '';
-            const timeEl = anchor.querySelector('time');
-            if (timeEl?.getAttribute('datetime')) {
-                dateStr = timeEl.getAttribute('datetime');
-            }
-            else if (timeEl?.textContent) {dateStr = timeEl.textContent;}
-            else {
-                // fall back to text that looks like a year
-                const dateNode = anchor.querySelector('[data-testid*="release"], [class*="date"], [class*="year"], small');
-                dateStr = (dateNode?.textContent || '').trim();
-            }
-
-            let date = null;
-            if (dateStr) {
-                const d = new Date(dateStr);
-                if (!Number.isNaN(d.getTime())) date = d;
-                else {
-                    // try year-only
-                    const yr = dateStr.match(/(19|20)\d{2}/);
-                    if (yr) date = new Date(parseInt(yr[0], 10), 0, 1);
-                }
-            }
-
-            const isPlaying = !!(uri && playingAlbumUri && playingAlbumUri === uri);
-            return {uri, name, type, image, date, isPlaying};
-        });
-        // Filter incomplete items and sort by date ascending
-        return releases
-            .filter(x => x.uri && x.name)
-            .sort((a, b) => {
-                const ta = xTime(a.date), tb = xTime(b.date);
-                return ta - tb;
-            });
-
-        function xTime(d) { return d instanceof Date ? d.getTime() : Number.MAX_SAFE_INTEGER; }
-    }
-    // Create the Navigator instance
-    // Pass it the state object and the callback function
-    const navigator = new Navigator(state, onArtistPageLoad);
-
-    // Start listening to navigation
+    const navigator = new Navigator(state, onArtistPageDetected);
     navigator.start();
 
+    // ========================================
+    // PHASE 5: Set up cleanup on page unload
+    // ========================================
 
-     // Clean up when Spotify is closing
-     // This prevents memory leaks
     window.addEventListener('beforeunload', () => {
-        console.log('[Timeline] Cleaning up before page unload');
-
-        // Stop listening to navigation
+        console.log('[Timeline] Cleaning up before page unload...');
         navigator.stop();
-
-        // Clean up any DOM elements
         navigator.cleanup();
+        timelineCore.destroy();
     });
-}
 
-artistTimeline();
+    // ========================================
+    // SUCCESS!
+    // ========================================
+
+    console.log('[Timeline] ✓✓✓ Extension loaded successfully!');
+    Spicetify.showNotification('Artist Timeline ready! 🎵');
+})();
