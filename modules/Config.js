@@ -6,6 +6,10 @@ class Config {
             cardSize : 'medium',
             autoScrollToPlay : true,
             animationSpeed : 0,
+            proportionalSpacing: false,
+            showScrollButtons: true,
+            minSpacing: 20,
+            maxSpacing: 200,
         };
         this.config = this.load();
     }

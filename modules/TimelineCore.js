@@ -27,12 +27,17 @@ class TimelineCore {
      * @param {HTMLElement} discographyContainer - The discography section
      * @param {DataExtractor} dataExtractor - Data extraction module
      */
-    async init(discographyContainer, dataExtractor) {
+    async initialize(discographyContainer, dataExtractor) {
         this.discographyContainer = discographyContainer;
         this.dataExtractor = dataExtractor;
 
         // Find the control bar
         const controlsBar = this.findControlsBar(discographyContainer);
+        
+        // Inject Timeline button if controls bar found
+        if (controlsBar) {
+            this.injectTimelineButton(controlsBar);
+        }
 
         if(this.state.currentView === 'timeline')
             await this.switchToTimeline();
@@ -230,6 +235,12 @@ class TimelineCore {
         const orientation = this.config.get('orientation') || 'horizontal';
         container.classList.add(`timeline--${orientation}`);
 
+        // Apply proportional spacing if enabled
+        const proportionalSpacing = this.config.get('proportionalSpacing') || false;
+        if (proportionalSpacing) {
+            container.setAttribute('data-proportional-spacing', 'true');
+        }
+
         // Create timeline track
         const track = document.createElement('div');
         track.className = 'timeline-track';
@@ -241,18 +252,38 @@ class TimelineCore {
         cardsContainer.className = 'timeline-cards';
         cardsContainer.setAttribute('role', 'list');
 
-        // Render each release card
+        // Render each release card with optional proportional spacing
         releases.forEach((release, index) => {
             const card = this.createCard(release, index);
-            cardsContainer.appendChild(card);
+            
+            // Apply proportional spacing if enabled
+            if (proportionalSpacing && index > 0) {
+                const spacing = this.calculateSpacing(releases[index - 1], release);
+                if (orientation === 'horizontal') {
+                    card.style.marginLeft = `${spacing}px`;
+                } else {
+                    card.style.marginTop = `${spacing}px`;
+                }
             }
-        );
+            
+            cardsContainer.appendChild(card);
+        });
 
         container.appendChild(cardsContainer);
 
+        // Add scroll buttons if enabled and horizontal
+        if (this.config.get('showScrollButtons') && orientation === 'horizontal') {
+            this.addScrollButtons(container, cardsContainer);
+        }
+
+        // Add mouse wheel scroll support for horizontal layout
+        if (orientation === 'horizontal') {
+            this.addMouseWheelScroll(container);
+        }
+
         // Insert timeline into DOM (right after the hidden grid)
-        this.state.orginalGridContainer.parentNode.insertBefore(container,
-            this.state.orginalGridContainer.nextSibling);
+        this.state.originalGridContainer.parentNode.insertBefore(container,
+            this.state.originalGridContainer.nextSibling);
 
         // Save reference for cleanup
         this.state.update({ timelineContainer: container });
@@ -278,7 +309,7 @@ class TimelineCore {
         }
 
         // Format release date
-        const dataText = release.date ?
+        const dateText = release.date ?
             release.date.toLocaleDateString(undefined, {
                 year: 'numeric',
                 month: 'short',
@@ -319,7 +350,7 @@ class TimelineCore {
         </div>`;
 
         // Attach event listeners
-        this.attachCardEventListeners(card, release);
+        this.attachCardListeners(card, release);
 
         return card;
     }
@@ -353,6 +384,120 @@ class TimelineCore {
                 card.click();
             }
         });
+    }
+
+    // ========================================
+    // SCROLL FUNCTIONALITY
+    // ========================================
+
+    /**
+     * Add scroll buttons to timeline container
+     * @param {HTMLElement} container - Timeline container
+     * @param {HTMLElement} cardsContainer - Cards container
+     */
+    addScrollButtons(container, cardsContainer) {
+        // Left scroll button
+        const leftButton = document.createElement('button');
+        leftButton.className = 'timeline-scroll-button timeline-scroll-button--left';
+        leftButton.setAttribute('aria-label', 'Scroll left');
+        leftButton.innerHTML = `
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+        `;
+
+        // Right scroll button
+        const rightButton = document.createElement('button');
+        rightButton.className = 'timeline-scroll-button timeline-scroll-button--right';
+        rightButton.setAttribute('aria-label', 'Scroll right');
+        rightButton.innerHTML = `
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+            </svg>
+        `;
+
+        // Scroll amount (one card width approximately)
+        const scrollAmount = 250;
+
+        // Attach click handlers
+        leftButton.addEventListener('click', () => {
+            container.scrollBy({
+                left: -scrollAmount,
+                behavior: 'smooth'
+            });
+        });
+
+        rightButton.addEventListener('click', () => {
+            container.scrollBy({
+                left: scrollAmount,
+                behavior: 'smooth'
+            });
+        });
+
+        // Update button states on scroll
+        const updateButtonStates = () => {
+            const isAtStart = container.scrollLeft <= 0;
+            const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 1;
+
+            leftButton.disabled = isAtStart;
+            rightButton.disabled = isAtEnd;
+        };
+
+        // Initial state
+        updateButtonStates();
+
+        // Update on scroll
+        container.addEventListener('scroll', DOMUtils.debounce(updateButtonStates, 100));
+
+        // Add buttons to container
+        container.appendChild(leftButton);
+        container.appendChild(rightButton);
+    }
+
+    /**
+     * Add mouse wheel horizontal scroll support
+     * @param {HTMLElement} container - Timeline container
+     */
+    addMouseWheelScroll(container) {
+        const handleWheel = DOMUtils.debounce((e) => {
+            // Only handle horizontal scroll if not already scrolling vertically
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                container.scrollBy({
+                    left: e.deltaY,
+                    behavior: 'smooth'
+                });
+            }
+        }, 10);
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    /**
+     * Calculate spacing between two releases for proportional spacing
+     * @param {Object} prevRelease - Previous release
+     * @param {Object} currentRelease - Current release
+     * @returns {number} Spacing in pixels
+     */
+    calculateSpacing(prevRelease, currentRelease) {
+        const minSpacing = this.config.get('minSpacing') || 20;
+        const maxSpacing = this.config.get('maxSpacing') || 200;
+
+        // If either release doesn't have a date, use default spacing
+        if (!prevRelease.date || !currentRelease.date) {
+            return minSpacing;
+        }
+
+        // Calculate time difference in days
+        const timeDiff = Math.abs(currentRelease.date - prevRelease.date);
+        const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+
+        // Map days to spacing (logarithmic scale for better distribution)
+        // 0 days = minSpacing, 365 days = ~halfway, 3650 days (10 years) = maxSpacing
+        const spacing = minSpacing + (Math.log(daysDiff + 1) / Math.log(3650)) * (maxSpacing - minSpacing);
+
+        // Clamp to min/max
+        return Math.max(minSpacing, Math.min(maxSpacing, spacing));
     }
 
     // ========================================
