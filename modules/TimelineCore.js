@@ -323,4 +323,116 @@ class TimelineCore {
 
         return card;
     }
+
+    /**
+     * Attach event listeners to card elements
+     * @param {HTMLElement} card - Card element
+     * @param {Object} release - Release data object
+     */
+    attachCardListeners(card, release) {
+        // Play button click - play album without navigating
+        const playButton = card.querySelector('.timeline-card__play-button');
+        if (playButton) {
+            playButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent card click
+                Spicetify.Player.playUri(release.uri);
+            });
+        }
+
+        // Card click - navigate to release page
+        card.addEventListener('click', () => {
+            const albumID = release.uri.split(':')[2];
+            Spicetify.Platform.History.push(`/album/${albumID}`);
+            });
+
+        // Keyboard accessibility
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                card.click();
+            }
+        });
+    }
+
+    // ========================================
+    // CSS LOADING
+    // ========================================
+
+    /**
+     * Load external CSS file
+     * Uses relative path from extension directory
+     */
+    loadStyles() {
+        if (this.cssLoaded) return;
+
+        // Check if style already loaded
+        if (document.getElementById('artist-timeline-styles')) {
+            this.cssLoaded = true;
+            return;
+        }
+
+        // Create link element for stylesheet
+        const link = document.createElement('link');
+        link.id = 'artist-timeline-styles';
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+
+        // Path is relative to the extension directory
+        // Spicetify serves files from: spotify-install/Apps/[extension-name]/
+        link.href = 'styles/timeline.css';
+
+        link.onload = () => {
+            this.cssLoaded = true;
+        }
+
+        link.onerror = () => {
+            console.error('[TimelineCore] Failed to load timeline CSS');
+            this.injectFallbackStyles();
+        };
+        document.head.appendChild(link);
+    }
+
+    /**
+     * Fallback method: inject minimal inline styles if CSS file fails to load
+     */
+    injectFallbackStyles() {
+        const style = document.createElement('style');
+        style.id = 'artist-timeline-fallback-styles';
+        style.textContent = `
+            .timeline-view-button { padding: 8px 16px; }
+            .artist-timeline-view { padding: 60px 20px; overflow-x: auto; }
+            .timeline-cards { display: flex; gap: 48px; }
+            .timeline-card { cursor: pointer; }
+            .timeline-card__image { width: 180px; height: 180px; border-radius: 8px; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // ========================================
+    // UTILITIES
+    // ========================================
+
+    /**
+     * Escape HTML to prevent XSS attacks
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped HTML
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Get SVG markup for play button icon
+     * @returns {string} SVG markup
+     */
+    getPlayIcon() {
+        return `
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 5v14l11-7z"/>
+            </svg>
+        `;
+    }
 }
