@@ -1,0 +1,312 @@
+/**
+ * Artist Timeline Styles
+ * Updated with Snake Layout and Glow Effects
+ */
+
+/* ========================================
+   TIMELINE BUTTON
+   ======================================== */
+.timeline-view-button {
+    padding: 8px 16px;
+    margin: 0 4px;
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--spice-subtext, #b3b3b3);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.timeline-view-button:hover {
+    background-color: var(--spice-button-active, rgba(255, 255, 255, 0.1));
+    color: var(--spice-text, #ffffff);
+}
+
+.timeline-view-button--active {
+    background-color: var(--spice-button, rgba(255, 255, 255, 0.07));
+    color: var(--spice-text, #ffffff);
+}
+
+.timeline-orientation-button {
+    padding: 8px; /* Square button */
+}
+
+/* ========================================
+   TIMELINE CONTAINER
+   ======================================== */
+.timeline-view {
+    position: relative;
+    padding: 60px 20px;
+    min-height: 400px;
+    /* Default scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--spice-button, rgba(255, 255, 255, 0.1)) transparent;
+}
+
+/* ========================================
+   HORIZONTAL LAYOUT
+   ======================================== */
+.timeline--horizontal .timeline-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--spice-button, rgba(255, 255, 255, 0.1));
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.timeline--horizontal .timeline-cards {
+    display: flex;
+    align-items: center; /* Center cards on the line */
+    gap: 48px; /* Default gap, overridden by JS if proportional */
+    padding: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+/* ========================================
+   SNAKE (VERTICAL) LAYOUT
+   ======================================== */
+.timeline--vertical-snake .timeline-snake-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.timeline-snake-row {
+    display: flex;
+    position: relative;
+    padding: 40px 0;
+    width: 100%;
+    justify-content: flex-start; /* Standard L->R */
+    align-items: center;
+}
+
+.timeline-snake-row--reverse {
+    flex-direction: row-reverse; /* Reverse R->L */
+}
+
+/* The horizontal line for each row */
+.timeline-snake-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--spice-button, rgba(255, 255, 255, 0.1));
+    z-index: 0;
+    transform: translateY(-50%);
+}
+
+/* Turns (Curves connecting rows) */
+.timeline-snake-turn {
+    width: 100%; /* Spans full width */
+    height: 80px; /* Vertical gap between rows */
+    position: relative;
+    margin-top: -40px; /* Overlap to connect lines */
+    margin-bottom: -40px;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Right Turn: Connects end of Row 1 (Right) to start of Row 2 (Right) */
+.timeline-snake-turn--right {
+    border-right: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-bottom: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top-right-radius: 40px;
+    border-bottom-right-radius: 40px;
+    width: 50%;
+    margin-left: 50%; /* Shift to right half */
+}
+
+/* Left Turn: Connects end of Row 2 (Left) to start of Row 3 (Left) */
+.timeline-snake-turn--left {
+    border-left: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-bottom: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top-left-radius: 40px;
+    border-bottom-left-radius: 40px;
+    width: 50%;
+    margin-right: 50%; /* Shift to left half */
+}
+
+
+/* ========================================
+   TIMELINE CARDS
+   ======================================== */
+.timeline-card {
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    outline: none;
+    position: relative;
+    z-index: 2; /* Above lines */
+}
+
+.timeline-card:hover {
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+/* Marker (Dot) */
+.timeline-card__marker {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--spice-text, #ffffff);
+    margin: 0 auto 16px; /* Centered above content */
+    box-shadow: 0 0 0 4px var(--spice-main-transition, #121212); /* Fake border to mask line */
+}
+
+/* GLOW EFFECT & PLAYING STATE */
+.timeline-card--playing .timeline-card__marker {
+    background-color: var(--spice-main, #1db954);
+    box-shadow: 0 0 15px 2px var(--spice-main, #1db954);
+    animation: pulse 2s infinite;
+}
+
+.timeline-card--playing .timeline-card__image {
+    box-shadow: 0 0 25px 5px rgba(29, 185, 84, 0.5); /* Green glow behind image */
+    border: 2px solid var(--spice-main, #1db954);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Card Content */
+.timeline-card__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 200px;
+    background-color: var(--spice-main-transition, #121212); /* Background to cover line if needed */
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.timeline-card__image-wrapper {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin-bottom: 12px;
+}
+
+.timeline-card__image {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s ease;
+}
+
+/* Play Button */
+.timeline-card__play-button {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--spice-main, #1db954);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.timeline-card__image-wrapper:hover .timeline-card__play-button {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.timeline-card__play-button:hover {
+    background-color: #1ed760;
+    transform: scale(1.1);
+}
+
+.timeline-card__play-button svg {
+    width: 20px;
+    height: 20px;
+    fill: #000000;
+}
+
+/* Text Info */
+.timeline-card__info {
+    text-align: center;
+}
+
+.timeline-card__title {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--spice-text, #ffffff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.timeline-card__meta {
+    font-size: 13px;
+    color: var(--spice-subtext, #b3b3b3);
+}
+
+/* ========================================
+   SCROLL BUTTONS (Horizontal Only)
+   ======================================== */
+.timeline-scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(0,0,0, 0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    transition: all 0.2s ease;
+    opacity: 0; /* Hidden by default, show on hover of container */
+}
+
+.timeline-view:hover .timeline-scroll-button {
+    opacity: 1;
+}
+
+.timeline-scroll-button:hover {
+    background-color: rgba(0,0,0, 0.8);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.timeline-scroll-button--left { left: 10px; }
+.timeline-scroll-button--right { right: 10px; }
+
+.timeline-scroll-button svg {
+    width: 24px;
+    height: 24px;
+    fill: #ffffff;
+}
+
+.timeline-scroll-button:disabled {
+    opacity: 0;
+    pointer-events: none;
+}

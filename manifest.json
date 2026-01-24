@@ -7,6 +7,8 @@
     "modules/DOMUtils.js",
     "modules/Navigator.js",
     "modules/DataExtractor.js",
+    "modules/views/Horizontal.js",
+    "modules/views/Vertical.js",
     "modules/TimelineCore.js"
   ],
   "main": "artistTimeline.js",

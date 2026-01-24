@@ -46,6 +46,4 @@ class DOMUtils {
             } , wait);
         }
     }
-
-
 }
