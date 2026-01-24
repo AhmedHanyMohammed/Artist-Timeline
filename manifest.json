@@ -1,21 +1,14 @@
 {
-  "name": "Artist Discography Timeline",
-  "description": "Adds a Timeline view to artist discography horizontal/vertical.",
-  "include": [
-    "modules/Config.js",
-    "modules/State.js",
-    "modules/DOMUtils.js",
-    "modules/Navigator.js",
-    "modules/DataExtractor.js",
-    "modules/views/Horizontal.js",
-    "modules/views/Vertical.js",
-    "modules/TimelineCore.js"
-  ],
-  "main": "artistTimeline.js",
+  "name": "Artist Timeline",
+  "description": "A unique way to view an artist's discography through an interactive timeline",
+  "main": "dist/artist-timeline.js",
   "authors": [
-    { "name": "AhmedHanyMohammed", "url": "https://github.com/AhmedHanyMohammed" }
+    {
+      "name": "AhmedHanyMohammed",
+      "url": "https://github.com/AhmedHanyMohammed"
+    }
   ],
-  "tags": ["spicetify", "extension", "ui", "timeline", "artist", "discography"],
   "preview": "preview.png",
-  "readme": "README.md"
+  "readme": "README.md",
+  "tags": ["artist", "discography", "timeline"]
 }
