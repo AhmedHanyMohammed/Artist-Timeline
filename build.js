@@ -55,15 +55,10 @@ moduleOrder.forEach(filePath => {
     }
 });
 
-// Create dist directory if it doesn't exist
-if (!fs.existsSync('dist')) {
-    fs.mkdirSync('dist');
-}
 
 // Write the bundled file
-fs.writeFileSync('dist/artistTimeline.js', combinedJS);
+fs.writeFileSync('artistTimeline.js', combinedJS);
 
-console.log('✅ Build complete: dist/artistTimeline.js');
 
 // If --watch flag is provided, watch for changes
 if (process.argv.includes('--watch')) {
