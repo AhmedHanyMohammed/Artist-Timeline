@@ -11,6 +11,9 @@ const moduleOrder = [
     'modules/DataExtractor.js',
     'modules/views/Horizontal.js',
     'modules/views/Vertical.js',
+    'modules/options/FilterManager.js',
+    'modules/options/MenuInjector.js',
+    'modules/options/ViewSwitcher.js',
     'modules/TimelineCore.js',
     'artistTimeline.js'
 ];
@@ -66,7 +69,7 @@ console.log('✅ Build complete: dist/artistTimeline.js');
 if (process.argv.includes('--watch')) {
     console.log('👀 Watching for changes...');
     
-    const watchPaths = ['modules', 'styles', '.'];
+    const watchPaths = ['modules', 'modules/options', 'modules/views', 'styles', '.'];
     
     watchPaths.forEach(watchPath => {
         if (fs.existsSync(watchPath)) {

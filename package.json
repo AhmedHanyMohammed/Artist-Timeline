@@ -8,7 +8,7 @@
     "watch": "node build.js --watch"
   },
   "devDependencies": {
-    "esbuild": "^0.20.0"
+    "esbuild": "^0.27.2"
   },
   "author": "AhmedHanyMohammed",
   "license": "MIT"
