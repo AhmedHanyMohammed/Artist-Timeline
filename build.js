@@ -1,8 +1,6 @@
-const esbuild = require('esbuild');
 const fs = require('fs');
-const path = require('path');
 
-// Read all module files in the correct order
+// Module order - these are your SOURCE files
 const moduleOrder = [
     'modules/Config.js',
     'modules/State.js',
@@ -15,24 +13,20 @@ const moduleOrder = [
     'modules/options/MenuInjector.js',
     'modules/options/ViewSwitcher.js',
     'modules/TimelineCore.js',
-    'artistTimeline.js'
+    'src/main.js'  // Or keep as separate entry point
 ];
 
-// Read CSS file
+// Read CSS
 const cssContent = fs.readFileSync('styles/timeline.css', 'utf8');
 
-// Combine all JS files
-let combinedJS = '';
-
-// Add CSS injection at the top
-combinedJS += `
+// Build combined JS
+let combinedJS = `
 // ============================================
 // Artist Discography Timeline - Bundled Build
 // Author: AhmedHanyMohammed
 // ============================================
 
 (function() {
-    // Inject CSS styles
     const style = document.createElement('style');
     style.id = 'artist-timeline-styles';
     style.textContent = \`${cssContent.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`;
@@ -43,10 +37,10 @@ combinedJS += `
 
 `;
 
-// Read and combine all modules
+// Combine modules
 moduleOrder.forEach(filePath => {
     if (fs.existsSync(filePath)) {
-        let content = fs.readFileSync(filePath, 'utf8');
+        const content = fs.readFileSync(filePath, 'utf8');
         combinedJS += `\n// ========== ${filePath} ==========\n`;
         combinedJS += content;
         combinedJS += '\n';
@@ -55,28 +49,19 @@ moduleOrder.forEach(filePath => {
     }
 });
 
-
-// Write the bundled file
+// Write bundled output
 fs.writeFileSync('artistTimeline.js', combinedJS);
+console.log('✅ Build complete: artistTimeline.js');
 
-
-// If --watch flag is provided, watch for changes
+// Watch mode
 if (process.argv.includes('--watch')) {
     console.log('👀 Watching for changes...');
-    
-    const watchPaths = ['modules', 'modules/options', 'modules/views', 'styles', '.'];
-    
-    watchPaths.forEach(watchPath => {
-        if (fs.existsSync(watchPath)) {
-            fs.watch(watchPath, { recursive: true }, (eventType, filename) => {
-                if (filename && (filename.endsWith('.js') || filename.endsWith('.css'))) {
-                    console.log(`\n📝 ${filename} changed, rebuilding...`);
-                    try {
-                        // Re-run build
-                        require('child_process').execSync('node build.js', { stdio: 'inherit' });
-                    } catch (e) {
-                        console.error('Build failed:', e.message);
-                    }
+    ['modules', 'modules/options', 'modules/views', 'styles', 'src'].forEach(dir => {
+        if (fs.existsSync(dir)) {
+            fs.watch(dir, { recursive: true }, (_, file) => {
+                if (file?.endsWith('.js') || file?.endsWith('.css')) {
+                    console.log(`📝 ${file} changed, rebuilding...`);
+                    require('child_process').execSync('node build.js', { stdio: 'inherit' });
                 }
             });
         }

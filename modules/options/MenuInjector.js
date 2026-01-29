@@ -5,38 +5,30 @@ class MenuInjector {
     constructor(core) {
         this.core = core;
         this.menuObserver = null;
-        this.currentSortOrder = 'desc'; // Default: newest first (descending)
+        this.currentSortOrder = 'desc';
     }
 
-    /**
-     * Initialize menu injection
-     * @param {HTMLElement} container - The discography container
-     */
     async initialize(container) {
         console.log('[MenuInjector] Initializing...');
         
-        // Wait for Spotify to fully render the page
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for Spotify to render
+        await new Promise(resolve => setTimeout(resolve, 800));
         
-        const comboboxButton = await this.findComboboxButton(container);
+        const comboboxButton = await this.findComboboxButton();
         
         if (!comboboxButton) {
-            console.warn('[MenuInjector] Combobox button not found, falling back to custom button');
+            console.warn('[MenuInjector] Combobox button not found, using fallback');
             this.injectFallbackButton(container);
             return;
         }
 
-        console.log('[MenuInjector] Found combobox button:', comboboxButton);
+        console.log('[MenuInjector] ✓ Found combobox button');
         this.core.state.update({ comboboxButton });
         this.observeDropdownMenu();
     }
 
-    /**
-     * Clean up injected elements and observers
-     */
     destroy() {
         this.removeInjectedOptions();
-        
         if (this.menuObserver) {
             this.menuObserver.disconnect();
             this.menuObserver = null;
@@ -44,59 +36,49 @@ class MenuInjector {
     }
 
     /**
-     * Find the Spotify sort/view combobox button
+     * Find the combobox button
      * Target: button[role="combobox"][aria-controls="sort-and-view-picker"]
      */
-    async findComboboxButton(container) {
-        // Primary selector - exact match for the button you provided
+    async findComboboxButton() {
         const primarySelector = 'button[role="combobox"][aria-controls="sort-and-view-picker"]';
         
-        // Try multiple times with delay
-        for (let attempt = 0; attempt < 15; attempt++) {
-            // Try primary selector first
+        for (let attempt = 0; attempt < 20; attempt++) {
             const button = document.querySelector(primarySelector);
             if (button) {
-                console.log('[MenuInjector] Found button with primary selector');
                 return button;
             }
 
             // Fallback selectors
-            const fallbackSelectors = [
+            const fallbacks = [
                 'button[role="combobox"][aria-haspopup="true"]',
-                'button[aria-controls*="sort"]',
-                'button[aria-controls*="view"]',
+                'button[aria-haspopup="listbox"]',
             ];
 
-            for (const selector of fallbackSelectors) {
-                const btn = document.querySelector(selector);
-                if (btn) {
-                    console.log('[MenuInjector] Found button with fallback selector:', selector);
-                    return btn;
-                }
+            for (const sel of fallbacks) {
+                const btn = document.querySelector(sel);
+                if (btn) return btn;
             }
             
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 250));
         }
 
         return null;
     }
 
     /**
-     * Observe for dropdown menu appearing and inject options
-     * Target menu: ul[role="menu"] with id "sort-and-view-picker"
+     * Observe for dropdown menu
      */
     observeDropdownMenu() {
-        console.log('[MenuInjector] Setting up dropdown observer');
+        console.log('[MenuInjector] Setting up menu observer');
         
         this.menuObserver = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Look for the specific menu structure
                         const menu = this.findTargetMenu(node);
                         if (menu) {
-                            console.log('[MenuInjector] Dropdown menu detected:', menu);
-                            this.injectTimelineOption(menu);
+                            console.log('[MenuInjector] ✓ Menu detected');
+                            setTimeout(() => this.injectTimelineOption(menu), 50);
                         }
                     }
                 }
@@ -107,105 +89,82 @@ class MenuInjector {
     }
 
     /**
-     * Find the target dropdown menu
-     * Target: ul[role="menu"] that contains "Sort by" and "View as" sections
+     * Find the dropdown menu
      */
     findTargetMenu(node) {
-        // Check if node itself is the menu
+        // Direct match
         if (node.tagName === 'UL' && node.getAttribute('role') === 'menu') {
             return node;
         }
         
-        // Check for menu inside node
+        // Search inside
         const menu = node.querySelector?.('ul[role="menu"]');
         if (menu) return menu;
         
-        // Check if node is inside a tippy/popover container
-        if (node.classList?.contains('tippy-content') || node.querySelector?.('.tippy-content')) {
-            const innerMenu = node.querySelector('ul[role="menu"]');
-            if (innerMenu) return innerMenu;
-        }
-
-        // Check for the menu by ID
-        const menuById = node.querySelector?.('#sort-and-view-picker') || 
-                        (node.id === 'sort-and-view-picker' ? node : null);
-        if (menuById) return menuById;
+        // Check ID
+        if (node.id === 'sort-and-view-picker') return node;
+        const byId = node.querySelector?.('#sort-and-view-picker');
+        if (byId) return byId;
         
         return null;
     }
 
     /**
-     * Inject Timeline option into the dropdown menu (under Grid option)
-     * @param {HTMLElement} menu - The ul[role="menu"] element
+     * Inject Timeline option into menu
      */
     injectTimelineOption(menu) {
-        // Check if already injected
         if (menu.querySelector('.timeline-menu-option')) {
             this.updateMenuSelection(menu);
             return;
         }
 
-        console.log('[MenuInjector] Injecting Timeline option into menu');
+        console.log('[MenuInjector] Injecting Timeline option');
 
-        // Find the Grid button (it's the last "View as" option)
+        // Find Grid option
         const menuItems = menu.querySelectorAll('li[role="presentation"]');
         let gridItem = null;
-        let listItem = null;
 
         for (const item of menuItems) {
-            const button = item.querySelector('button[role="menuitemradio"]');
-            if (button) {
-                const text = button.textContent?.toLowerCase() || '';
-                if (text.includes('grid')) {
-                    gridItem = item;
-                } else if (text.includes('list')) {
-                    listItem = item;
-                }
+            const btn = item.querySelector('button[role="menuitemradio"]');
+            if (btn && btn.textContent?.toLowerCase().includes('grid')) {
+                gridItem = item;
+                break;
             }
         }
 
         if (!gridItem) {
-            console.warn('[MenuInjector] Grid option not found in menu');
+            console.warn('[MenuInjector] Grid option not found');
             return;
         }
 
-        // Create Timeline option (matching Spotify's exact structure)
+        // Create Timeline option
         const timelineItem = this.createTimelineMenuItem(gridItem);
         
-        // Insert after Grid option
-        if (gridItem.nextSibling) {
-            gridItem.parentNode.insertBefore(timelineItem, gridItem.nextSibling);
-        } else {
-            gridItem.parentNode.appendChild(timelineItem);
-        }
+        // Insert after Grid
+        gridItem.parentNode.insertBefore(timelineItem, gridItem.nextSibling);
 
-        // Handle sort options for timeline
         this.handleSortOptions(menu);
-        
-        // Update selection state
         this.updateMenuSelection(menu);
-        
-        // Set up listeners on native options
         this.setupNativeOptionListeners(menu);
     }
 
     /**
-     * Create Timeline menu item matching Spotify's exact HTML structure
-     * @param {HTMLElement} templateItem - The Grid li element to copy structure from
-     * @returns {HTMLElement} Timeline menu item
+     * Create Timeline menu item matching Spotify's structure
      */
     createTimelineMenuItem(templateItem) {
         const li = document.createElement('li');
         li.setAttribute('role', 'presentation');
-        li.className = templateItem.className + ' timeline-menu-option';
+        li.className = templateItem.className;
+        li.classList.add('timeline-menu-option');
 
+        const templateButton = templateItem.querySelector('button');
         const button = document.createElement('button');
-        button.className = templateItem.querySelector('button').className;
+        button.className = templateButton.className;
         button.setAttribute('role', 'menuitemradio');
         button.setAttribute('aria-checked', this.core.state.isTimelineActive ? 'true' : 'false');
         button.setAttribute('tabindex', '-1');
 
-        // Build button content matching Spotify's structure
+        // Use the exact same structure as Grid/List buttons
         button.innerHTML = `
             ${this.getTimelineIcon()}
             <span class="e-91000-text encore-text-body-small ellipsis-one-line yjdsntzei5QWfVvE" data-encore-id="text" dir="auto">Timeline</span>
@@ -213,17 +172,12 @@ class MenuInjector {
             ${this.core.state.isTimelineActive ? this.getCheckmarkIcon() : ''}
         `;
 
-        // Click handler
         button.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             
-            console.log('[MenuInjector] Timeline option clicked');
-            
-            // Close the dropdown menu
+            console.log('[MenuInjector] Timeline clicked');
             this.closeDropdown();
-
-            // Switch to timeline view
             await this.core.viewSwitcher.switchToTimeline('timeline-horizontal');
         });
 
@@ -231,11 +185,9 @@ class MenuInjector {
         return li;
     }
 
-    /**
-     * Handle sort options - when timeline is active, modify sort behavior
-     * @param {HTMLElement} menu - The dropdown menu
-     */
     handleSortOptions(menu) {
+        if (!this.core.state.isTimelineActive) return;
+        
         const menuItems = menu.querySelectorAll('li[role="presentation"]');
         
         for (const item of menuItems) {
@@ -244,52 +196,26 @@ class MenuInjector {
             
             const text = button.textContent?.toLowerCase() || '';
             
-            // Handle "Name" sort option - disable when timeline is active
-            if (text.includes('name') && !text.includes('release')) {
-                if (this.core.state.isTimelineActive) {
-                    this.disableSortOption(button, item);
-                }
+            // Disable Name sort
+            if (text === 'name') {
+                button.style.opacity = '0.4';
+                button.style.pointerEvents = 'none';
+                button.setAttribute('aria-disabled', 'true');
+                item.classList.add('timeline-disabled-option');
             }
             
-            // Handle "Release date" sort option - add ascending option when timeline is active
-            if (text.includes('release date')) {
-                if (this.core.state.isTimelineActive) {
-                    this.enhanceReleaseDateOption(button, item, menu);
-                }
+            // Add ascending option for Release date
+            if (text.includes('release date') && !menu.querySelector('.timeline-sort-asc-option')) {
+                this.addAscendingOption(button, item, menu);
             }
         }
     }
 
-    /**
-     * Disable a sort option (for Name when timeline is active)
-     * @param {HTMLElement} button - Button element
-     * @param {HTMLElement} item - Li element
-     */
-    disableSortOption(button, item) {
-        button.style.opacity = '0.4';
-        button.style.pointerEvents = 'none';
-        button.style.cursor = 'not-allowed';
-        button.setAttribute('aria-disabled', 'true');
-        button.title = 'Name sorting is not available in Timeline view';
-        
-        // Mark as disabled
-        item.classList.add('timeline-disabled-option');
-    }
-
-    /**
-     * Enhance Release date option with ascending/descending toggle
-     * @param {HTMLElement} button - Release date button
-     * @param {HTMLElement} item - Li element
-     * @param {HTMLElement} menu - Menu container
-     */
-    enhanceReleaseDateOption(button, item, menu) {
-        // Check if we already added the ascending option
-        if (menu.querySelector('.timeline-sort-asc-option')) return;
-
-        // Create "Release date (Oldest first)" option
+    addAscendingOption(button, item, menu) {
         const ascItem = document.createElement('li');
         ascItem.setAttribute('role', 'presentation');
-        ascItem.className = item.className + ' timeline-sort-asc-option';
+        ascItem.className = item.className;
+        ascItem.classList.add('timeline-sort-asc-option');
 
         const ascButton = document.createElement('button');
         ascButton.className = button.className;
@@ -306,87 +232,43 @@ class MenuInjector {
         ascButton.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
             this.currentSortOrder = 'asc';
             this.core.state.update({ sortOrder: 'asc' });
-            
             this.closeDropdown();
-            
-            // Refresh timeline with new sort order
             await this.core.viewSwitcher.refresh();
-            Spicetify.showNotification('Sorted by oldest first', false, 2000);
+            Spicetify.showNotification('Sorted oldest first', false, 2000);
         });
 
         ascItem.appendChild(ascButton);
 
-        // Update the existing "Release date" button to show it's descending
-        const existingSpan = button.querySelector('span[data-encore-id="text"]');
-        if (existingSpan && !existingSpan.textContent.includes('↓')) {
-            existingSpan.textContent = 'Release date ↓';
+        // Update existing to show descending
+        const span = button.querySelector('span[data-encore-id="text"]');
+        if (span && !span.textContent.includes('↓')) {
+            span.textContent = 'Release date ↓';
         }
 
-        // Update click handler for existing release date option
-        button.addEventListener('click', async (e) => {
-            if (this.core.state.isTimelineActive) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                this.currentSortOrder = 'desc';
-                this.core.state.update({ sortOrder: 'desc' });
-                
-                this.closeDropdown();
-                
-                await this.core.viewSwitcher.refresh();
-                Spicetify.showNotification('Sorted by newest first', false, 2000);
-            }
-        });
-
-        // Insert ascending option after descending
-        if (item.nextSibling) {
-            item.parentNode.insertBefore(ascItem, item.nextSibling);
-        } else {
-            item.parentNode.appendChild(ascItem);
-        }
+        item.parentNode.insertBefore(ascItem, item.nextSibling);
     }
 
-    /**
-     * Close the dropdown menu
-     */
     closeDropdown() {
-        const combobox = this.core.state.comboboxButton;
-        if (combobox) {
-            combobox.click();
-        } else {
-            // Fallback: press Escape
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        }
+        const btn = this.core.state.comboboxButton;
+        if (btn) btn.click();
     }
 
-    /**
-     * Set up click listeners on Spotify's native options (Grid/List)
-     * @param {HTMLElement} menu - The menu element
-     */
     setupNativeOptionListeners(menu) {
-        const menuItems = menu.querySelectorAll('li[role="presentation"]');
+        const items = menu.querySelectorAll('li[role="presentation"]');
         
-        for (const item of menuItems) {
-            // Skip our injected options
+        for (const item of items) {
             if (item.classList.contains('timeline-menu-option') || 
-                item.classList.contains('timeline-sort-asc-option') ||
-                item.classList.contains('timeline-disabled-option')) {
-                continue;
-            }
+                item.classList.contains('timeline-sort-asc-option')) continue;
             
-            const button = item.querySelector('button[role="menuitemradio"]');
-            if (!button) continue;
+            const btn = item.querySelector('button[role="menuitemradio"]');
+            if (!btn) continue;
             
-            const text = button.textContent?.toLowerCase() || '';
-            
-            // Only handle Grid and List options
+            const text = btn.textContent?.toLowerCase() || '';
             if (text.includes('grid') || text.includes('list')) {
-                button.addEventListener('click', () => {
+                btn.addEventListener('click', () => {
                     if (this.core.state.isTimelineActive) {
-                        console.log('[MenuInjector] Native view option clicked, switching to grid');
                         this.core.viewSwitcher.switchToGrid();
                     }
                 });
@@ -394,143 +276,84 @@ class MenuInjector {
         }
     }
 
-    /**
-     * Update selection state of menu options
-     * @param {HTMLElement} menu - The menu element
-     */
     updateMenuSelection(menu) {
-        // Update Timeline option
-        const timelineOption = menu.querySelector('.timeline-menu-option button');
-        if (timelineOption) {
-            const isSelected = this.core.state.isTimelineActive;
-            timelineOption.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        const timelineBtn = menu.querySelector('.timeline-menu-option button');
+        if (timelineBtn) {
+            const isActive = this.core.state.isTimelineActive;
+            timelineBtn.setAttribute('aria-checked', isActive ? 'true' : 'false');
             
-            // Add/remove checkmark
-            const existingCheckmark = timelineOption.querySelector('.YP0GJXkJCEklub1V');
-            if (isSelected && !existingCheckmark) {
-                timelineOption.insertAdjacentHTML('beforeend', this.getCheckmarkIcon());
-            } else if (!isSelected && existingCheckmark) {
-                existingCheckmark.remove();
+            const checkmark = timelineBtn.querySelector('.YP0GJXkJCEklub1V');
+            if (isActive && !checkmark) {
+                timelineBtn.insertAdjacentHTML('beforeend', this.getCheckmarkIcon());
+            } else if (!isActive && checkmark) {
+                checkmark.remove();
             }
         }
 
-        // If timeline is active, uncheck Grid and List options
         if (this.core.state.isTimelineActive) {
-            const menuItems = menu.querySelectorAll('li[role="presentation"]');
-            for (const item of menuItems) {
-                if (item.classList.contains('timeline-menu-option')) continue;
-                
-                const button = item.querySelector('button[role="menuitemradio"]');
-                if (!button) continue;
-                
-                const text = button.textContent?.toLowerCase() || '';
+            menu.querySelectorAll('li[role="presentation"]').forEach(item => {
+                if (item.classList.contains('timeline-menu-option')) return;
+                const btn = item.querySelector('button[role="menuitemradio"]');
+                if (!btn) return;
+                const text = btn.textContent?.toLowerCase() || '';
                 if (text.includes('grid') || text.includes('list')) {
-                    button.setAttribute('aria-checked', 'false');
-                    // Remove checkmark if present
-                    const checkmark = button.querySelector('.YP0GJXkJCEklub1V');
-                    if (checkmark) checkmark.remove();
+                    btn.setAttribute('aria-checked', 'false');
+                    const cm = btn.querySelector('.YP0GJXkJCEklub1V');
+                    if (cm) cm.remove();
                 }
-            }
+            });
         }
     }
 
-    /**
-     * Remove all injected elements
-     */
     removeInjectedOptions() {
         document.querySelectorAll('.timeline-menu-option, .timeline-sort-asc-option, .timeline-disabled-option')
             .forEach(el => el.remove());
     }
 
-    /**
-     * Inject fallback button when combobox not found
-     * @param {HTMLElement} container - Container element
-     */
     injectFallbackButton(container) {
-        const controlsBar = this.findControlsBar(container);
-        if (!controlsBar || this.core.state.injectedButton) return;
+        const actionBar = document.querySelector('[data-testid="action-bar-row"]') ||
+                         document.querySelector('[data-testid="action-bar"]');
+        
+        if (!actionBar || this.core.state.injectedButton) return;
 
         const button = document.createElement('button');
-        button.className = 'Button-sc-1dqy6lx-0 timeline-view-button e-91000-button--small';
-        button.innerHTML = `
-            <span style="display: flex; align-items: center; gap: 6px;">
-                ${this.getTimelineIcon()}
-                <span class="e-91000-text encore-text-body-small" data-encore-id="text">Timeline</span>
-            </span>
-        `;
-        button.setAttribute('aria-label', 'Timeline view');
+        button.className = 'timeline-fallback-button';
+        button.innerHTML = `${this.getTimelineIcon()} Timeline`;
         button.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
             background: transparent;
-            border: none;
-            border-radius: 4px;
-            color: var(--text-base, #fff);
-            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 500px;
+            color: #fff;
+            padding: 8px 16px;
             cursor: pointer;
             font-size: 14px;
             margin-left: 8px;
-            transition: background-color 0.2s;
         `;
         
         button.addEventListener('click', () => this.core.viewSwitcher.handleButtonClick());
-        button.addEventListener('mouseenter', () => {
-            button.style.backgroundColor = 'rgba(255,255,255,0.1)';
-        });
-        button.addEventListener('mouseleave', () => {
-            button.style.backgroundColor = 'transparent';
-        });
-        
-        controlsBar.appendChild(button);
+        actionBar.appendChild(button);
         this.core.state.update({ injectedButton: button });
     }
 
-    /**
-     * Find the controls bar element
-     * @param {HTMLElement} container - Container to search in
-     * @returns {HTMLElement|null} Controls bar or null
-     */
     findControlsBar(container) {
-        const selectors = [
-            '[data-testid="action-bar-row"]',
-            '[data-testid="action-bar"]',
-            '[data-testid="actionBarRow"]',
-            '[class*="ActionBar"]',
-            '[class*="actionBar"]',
-        ];
-        
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) return element;
-        }
-        
-        return null;
+        return document.querySelector('[data-testid="action-bar-row"]') ||
+               document.querySelector('[data-testid="action-bar"]');
     }
 
     /**
-     * Get the Timeline/Snake icon SVG (matching your uploaded image)
-     * @returns {string} SVG HTML
+     * Timeline icon matching your uploaded snake image
      */
     getTimelineIcon() {
-        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline" style="--encore-icon-height: var(--encore-graphic-size-decorative-smaller); --encore-icon-width: var(--encore-graphic-size-decorative-smaller);" viewBox="0 0 16 16">
-            <circle cx="2" cy="3" r="1.5" fill="currentColor"/>
-            <circle cx="6" cy="3" r="1.25" stroke="currentColor" stroke-width="1" fill="none"/>
-            <circle cx="10" cy="3" r="1.25" stroke="currentColor" stroke-width="1" fill="none"/>
-            <circle cx="14" cy="3" r="1.5" fill="currentColor"/>
-            <path d="M3.5 3 H4.75 M7.25 3 H8.75 M11.25 3 H12.5" stroke="currentColor" stroke-width="1"/>
-            <path d="M14 4.5 Q14 7 12 8 Q8 10 4 8 Q2 7 2 9" stroke="currentColor" stroke-width="1" fill="none"/>
-            <circle cx="2" cy="13" r="1.5" fill="currentColor"/>
-            <circle cx="6" cy="13" r="1.25" stroke="currentColor" stroke-width="1" fill="none"/>
-            <circle cx="10" cy="13" r="1.25" stroke="currentColor" stroke-width="1" fill="none"/>
-            <circle cx="14" cy="13" r="1.5" fill="currentColor"/>
-            <path d="M3.5 13 H4.75 M7.25 13 H8.75 M11.25 13 H12.5" stroke="currentColor" stroke-width="1"/>
-            <path d="M2 10.5 Q2 12 4 12 Q8 12 12 12 Q14 12 14 11.5" stroke="currentColor" stroke-width="1" fill="none"/>
-        </svg>`;
+        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline" viewBox="0 0 16 16" style="--encore-icon-height: var(--encore-graphic-size-decorative-smaller); --encore-icon-width: var(--encore-graphic-size-decorative-smaller);"><circle cx="2" cy="3" r="1.5" fill="currentColor"/><circle cx="6" cy="3" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="10" cy="3" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="3" r="1.5" fill="currentColor"/><path d="M3.5 3h1m3 0h2m3 0h1" stroke="currentColor" stroke-width="1"/><path d="M14 4.5c0 2-2 3-6 3s-6 1-6 2" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="2" cy="13" r="1.5" fill="currentColor"/><circle cx="6" cy="13" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="10" cy="13" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="13" r="1.5" fill="currentColor"/><path d="M3.5 13h1m3 0h2m3 0h1" stroke="currentColor" stroke-width="1"/><path d="M2 10.5c0 1 2 1.5 6 1.5s6-.5 6-1.5" stroke="currentColor" stroke-width="1" fill="none"/></svg>`;
     }
 
     /**
-     * Get the checkmark icon (used by Spotify for selected options)
-     * @returns {string} SVG HTML
+     * Checkmark icon used by Spotify
      */
     getCheckmarkIcon() {
-        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline YP0GJXkJCEklub1V" style="--encore-icon-height: var(--encore-graphic-size-decorative-smaller); --encore-icon-width: var(--encore-graphic-size-decorative-smaller);" viewBox="0 0 16 16"><path d="M15.53 2.47a.75.75 0 0 1 0 1.06L4.907 14.153.47 9.716a.75.75 0 0 1 1.06-1.06l3.377 3.376L14.47 2.47a.75.75 0 0 1 1.06 0"></path></svg>`;
+        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline YP0GJXkJCEklub1V" viewBox="0 0 16 16" style="--encore-icon-height: var(--encore-graphic-size-decorative-smaller); --encore-icon-width: var(--encore-graphic-size-decorative-smaller);"><path d="M15.53 2.47a.75.75 0 0 1 0 1.06L4.907 14.153.47 9.716a.75.75 0 0 1 1.06-1.06l3.377 3.376L14.47 2.47a.75.75 0 0 1 1.06 0"></path></svg>`;
     }
 }
