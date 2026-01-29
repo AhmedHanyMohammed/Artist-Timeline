@@ -31,14 +31,14 @@ class DOMUtils {
         return match ? match[1] : null;
     }
 
-    // boolean
+    // boolean - now includes discography pages
     static isArtistPage(url) {
         return url.match(/^\/?artist\/[a-zA-Z0-9]+/) !== null;
     }
 
     static isDiscographyPage(url) {
-    return url.match(/^\/?artist\/[a-zA-Z0-9]+\/discography/) !== null;
-}
+        return url.match(/^\/?artist\/[a-zA-Z0-9]+\/discography/) !== null;
+    }
 
     // limiter how often a function can run
     static debounce(func, wait) {

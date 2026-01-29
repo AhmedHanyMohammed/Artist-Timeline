@@ -22,16 +22,21 @@ class ViewSwitcher {
      * @param {string} viewType - 'timeline-horizontal' or 'timeline-vertical'
      */
     async switchToTimeline(viewType = 'timeline-horizontal') {
+        console.log('[ViewSwitcher] Switching to timeline:', viewType);
+        
         const orientation = viewType === 'timeline-vertical' ? 'vertical' : 'horizontal';
         this.core.config.set('orientation', orientation);
 
         // Extract releases from current DOM content
-        const releases = this.core.dataExtractor.extractFromDOM(this.core.state.originalGridContainer);
+        let releases = this.core.dataExtractor.extractFromDOM(this.core.state.originalGridContainer);
 
         if (!releases || releases.length === 0) {
             Spicetify.showNotification('No releases found to display', true, 3000);
             return;
         }
+
+        // Apply sort order
+        releases = this.applySortOrder(releases);
 
         // Hide original grid
         if (this.core.state.originalGridContainer) {
@@ -56,9 +61,36 @@ class ViewSwitcher {
     }
 
     /**
+     * Apply sort order to releases
+     * @param {Array} releases - Array of release objects
+     * @returns {Array} Sorted releases
+     */
+    applySortOrder(releases) {
+        const sortOrder = this.core.state.sortOrder || 'desc';
+        
+        return [...releases].sort((a, b) => {
+            // Handle missing dates
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;  // Push items without dates to the end
+            if (!b.date) return -1;
+            
+            const dateA = a.date.getTime();
+            const dateB = b.date.getTime();
+            
+            if (sortOrder === 'asc') {
+                return dateA - dateB;  // Oldest first
+            } else {
+                return dateB - dateA;  // Newest first (default)
+            }
+        });
+    }
+
+    /**
      * Switch back to grid view
      */
     switchToGrid() {
+        console.log('[ViewSwitcher] Switching to grid');
+        
         // Remove timeline container
         if (this.core.state.timelineContainer) {
             this.core.state.timelineContainer.remove();
@@ -94,9 +126,11 @@ class ViewSwitcher {
         if (isActive) {
             button.classList.add('timeline-view-button--active');
             button.setAttribute('aria-selected', 'true');
+            button.style.backgroundColor = 'var(--spice-button-active, rgba(255,255,255,0.2))';
         } else {
             button.classList.remove('timeline-view-button--active');
             button.setAttribute('aria-selected', 'false');
+            button.style.backgroundColor = 'var(--spice-button, rgba(255,255,255,0.07))';
         }
     }
 
@@ -106,9 +140,13 @@ class ViewSwitcher {
     async refresh() {
         if (!this.core.state.isTimelineActive) return;
 
-        const releases = this.core.dataExtractor.extractFromDOM(this.core.state.originalGridContainer);
+        console.log('[ViewSwitcher] Refreshing timeline');
+        
+        let releases = this.core.dataExtractor.extractFromDOM(this.core.state.originalGridContainer);
         
         if (releases && releases.length > 0) {
+            // Apply sort order
+            releases = this.applySortOrder(releases);
             this.core.renderTimeline(releases);
         } else {
             console.log('[ViewSwitcher] No releases found for current filter');
