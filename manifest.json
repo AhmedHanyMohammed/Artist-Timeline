@@ -1,7 +1,7 @@
 {
   "name": "Artist Timeline",
   "description": "A unique way to view an artist's discography through an interactive timeline",
-  "main": "artist-timeline.js",
+  "main": "artistTimeline.js",
   "authors": [
     {
       "name": "AhmedHanyMohammed",
