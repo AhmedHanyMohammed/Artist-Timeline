@@ -13,7 +13,7 @@ const moduleOrder = [
     'modules/options/MenuInjector.js',
     'modules/options/ViewSwitcher.js',
     'modules/TimelineCore.js',
-    'src/main.js'  // Or keep as separate entry point
+    'src/main.js'
 ];
 
 // Read CSS
@@ -50,8 +50,8 @@ moduleOrder.forEach(filePath => {
 });
 
 // Write bundled output
-fs.writeFileSync('artistTimeline.js', combinedJS);
-console.log('✅ Build complete: artistTimeline.js');
+fs.writeFileSync('dist/artistTimeline.js', combinedJS);
+console.log('✅ Build complete: dist/artistTimeline.js');
 
 // Watch mode
 if (process.argv.includes('--watch')) {
