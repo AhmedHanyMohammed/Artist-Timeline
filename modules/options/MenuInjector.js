@@ -6,6 +6,7 @@ class MenuInjector {
         this.core = core;
         this.menuObserver = null;
         this.currentSortOrder = 'desc';
+        this._pollingInterval = null;
     }
 
     async initialize(container) {
@@ -24,44 +25,63 @@ class MenuInjector {
 
         console.log('[MenuInjector] ✓ Found combobox button');
         this.core.state.update({ comboboxButton });
+        
+        // Strategy 1: Observer (Primary)
         this.observeDropdownMenu();
+
+        // Strategy 2: Polling (Backup Safety Net)
+        // Checks every 1.5 seconds if the menu is open but we missed injecting it
+        this.startPolling();
     }
 
     destroy() {
         this.removeInjectedOptions();
+        this.stopPolling();
         if (this.menuObserver) {
             this.menuObserver.disconnect();
             this.menuObserver = null;
         }
     }
 
+    startPolling() {
+        this.stopPolling();
+        this._pollingInterval = setInterval(() => {
+            const menu = document.querySelector('ul[role="menu"], #sort-and-view-picker');
+            if (menu && this.isValidMenu(menu)) {
+                // Only try to inject if our option isn't there yet
+                if (!menu.querySelector('.timeline-menu-option')) {
+                    console.log('[MenuInjector] Menu found via polling (Observer missed it)');
+                    this.injectTimelineOption(menu);
+                }
+            }
+        }, 1500);
+    }
+
+    stopPolling() {
+        if (this._pollingInterval) {
+            clearInterval(this._pollingInterval);
+            this._pollingInterval = null;
+        }
+    }
+
     /**
      * Find the combobox button
-     * Target: button[role="combobox"][aria-controls="sort-and-view-picker"]
      */
     async findComboboxButton() {
-        const primarySelector = 'button[role="combobox"][aria-controls="sort-and-view-picker"]';
+        // Expanded selectors to be safer
+        const selectors = [
+            'button[aria-controls="sort-and-view-picker"]',
+            'button[role="combobox"][aria-haspopup="true"]',
+            'button[data-testid="sort-and-view-picker-button"]' 
+        ];
         
         for (let attempt = 0; attempt < 20; attempt++) {
-            const button = document.querySelector(primarySelector);
-            if (button) {
-                return button;
+            for (const selector of selectors) {
+                const button = document.querySelector(selector);
+                if (button) return button;
             }
-
-            // Fallback selectors
-            const fallbacks = [
-                'button[role="combobox"][aria-haspopup="true"]',
-                'button[aria-haspopup="listbox"]',
-            ];
-
-            for (const sel of fallbacks) {
-                const btn = document.querySelector(sel);
-                if (btn) return btn;
-            }
-            
             await new Promise(resolve => setTimeout(resolve, 250));
         }
-
         return null;
     }
 
@@ -75,38 +95,43 @@ class MenuInjector {
             for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        const menu = this.findTargetMenu(node);
-                        if (menu) {
-                            console.log('[MenuInjector] ✓ Menu detected');
-                            setTimeout(() => this.injectTimelineOption(menu), 50);
+                        // Check the node itself
+                        if (this.isValidMenu(node)) {
+                            this.injectTimelineOption(node);
+                            return;
+                        }
+                        // Check children (Spotify often wraps the UL in a div)
+                        const menu = node.querySelector?.('ul[role="menu"]');
+                        if (menu && this.isValidMenu(menu)) {
+                            this.injectTimelineOption(menu);
+                            return;
                         }
                     }
                 }
             }
         });
 
+        // Observe body for portals
         this.menuObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     /**
-     * Find the dropdown menu
+     * Validates if a node is the correct "Sort & View" menu
+     * Uses text content matching which is more reliable than IDs
      */
-    findTargetMenu(node) {
-        // Direct match
-        if (node.tagName === 'UL' && node.getAttribute('role') === 'menu') {
-            return node;
-        }
+    isValidMenu(node) {
+        // 1. Must be a menu-like element
+        const isMenu = (node.tagName === 'UL' || node.getAttribute?.('role') === 'menu') ||
+                       node.querySelector?.('ul[role="menu"]');
         
-        // Search inside
-        const menu = node.querySelector?.('ul[role="menu"]');
-        if (menu) return menu;
+        if (!isMenu) return false;
+
+        // 2. Must contain specific keywords unique to this menu
+        const text = node.textContent || '';
+        const hasKeywords = (text.includes('Sort') || text.includes('View as')) && 
+                            (text.includes('Grid') || text.includes('List'));
         
-        // Check ID
-        if (node.id === 'sort-and-view-picker') return node;
-        const byId = node.querySelector?.('#sort-and-view-picker');
-        if (byId) return byId;
-        
-        return null;
+        return hasKeywords;
     }
 
     /**
@@ -133,15 +158,23 @@ class MenuInjector {
         }
 
         if (!gridItem) {
-            console.warn('[MenuInjector] Grid option not found');
-            return;
+            // Fallback: Use the last item if Grid isn't found
+            if (menuItems.length > 0) {
+                 gridItem = menuItems[menuItems.length - 1];
+            } else {
+                 return;
+            }
         }
 
         // Create Timeline option
         const timelineItem = this.createTimelineMenuItem(gridItem);
         
-        // Insert after Grid
-        gridItem.parentNode.insertBefore(timelineItem, gridItem.nextSibling);
+        // Insert after Grid (or whatever item we found)
+        if (gridItem.nextSibling) {
+            gridItem.parentNode.insertBefore(timelineItem, gridItem.nextSibling);
+        } else {
+            gridItem.parentNode.appendChild(timelineItem);
+        }
 
         this.handleSortOptions(menu);
         this.updateMenuSelection(menu);
@@ -159,16 +192,14 @@ class MenuInjector {
 
         const templateButton = templateItem.querySelector('button');
         const button = document.createElement('button');
-        button.className = templateButton.className;
+        button.className = templateButton ? templateButton.className : ''; 
         button.setAttribute('role', 'menuitemradio');
         button.setAttribute('aria-checked', this.core.state.isTimelineActive ? 'true' : 'false');
         button.setAttribute('tabindex', '-1');
 
-        // Use the exact same structure as Grid/List buttons
         button.innerHTML = `
             ${this.getTimelineIcon()}
-            <span class="e-91000-text encore-text-body-small ellipsis-one-line yjdsntzei5QWfVvE" data-encore-id="text" dir="auto">Timeline</span>
-            <div class="ZjUuEcrKk8dIiPHd"></div>
+            <span class="e-91000-text encore-text-body-small ellipsis-one-line" data-encore-id="text" dir="auto">Timeline</span>
             ${this.core.state.isTimelineActive ? this.getCheckmarkIcon() : ''}
         `;
 
@@ -224,8 +255,7 @@ class MenuInjector {
         ascButton.setAttribute('tabindex', '-1');
 
         ascButton.innerHTML = `
-            <span class="e-91000-text encore-text-body-small ellipsis-one-line yjdsntzei5QWfVvE" data-encore-id="text" dir="auto">Release date ↑</span>
-            <div class="ZjUuEcrKk8dIiPHd"></div>
+            <span class="e-91000-text encore-text-body-small ellipsis-one-line" data-encore-id="text" dir="auto">Release date ↑</span>
             ${this.currentSortOrder === 'asc' ? this.getCheckmarkIcon() : ''}
         `;
 
@@ -282,10 +312,13 @@ class MenuInjector {
             const isActive = this.core.state.isTimelineActive;
             timelineBtn.setAttribute('aria-checked', isActive ? 'true' : 'false');
             
-            const checkmark = timelineBtn.querySelector('.YP0GJXkJCEklub1V');
-            if (isActive && !checkmark) {
+            const checkmark = timelineBtn.querySelector('svg:last-child');
+             // Be careful not to remove the icon if it's the only svg
+            const isCheckmark = checkmark && !checkmark.classList.contains('e-91000-icon'); 
+
+            if (isActive && !isCheckmark) {
                 timelineBtn.insertAdjacentHTML('beforeend', this.getCheckmarkIcon());
-            } else if (!isActive && checkmark) {
+            } else if (!isActive && isCheckmark) {
                 checkmark.remove();
             }
         }
@@ -298,8 +331,10 @@ class MenuInjector {
                 const text = btn.textContent?.toLowerCase() || '';
                 if (text.includes('grid') || text.includes('list')) {
                     btn.setAttribute('aria-checked', 'false');
-                    const cm = btn.querySelector('.YP0GJXkJCEklub1V');
-                    if (cm) cm.remove();
+                    // Try to find checkmark to remove
+                     const cm = btn.querySelector('svg:last-child');
+                     // Simple heuristic: checkmarks are usually the last child SVG
+                     if (cm && cm.innerHTML.includes('path')) cm.remove();
                 }
             });
         }
@@ -343,17 +378,11 @@ class MenuInjector {
                document.querySelector('[data-testid="action-bar"]');
     }
 
-    /**
-     * Timeline icon matching your uploaded snake image
-     */
     getTimelineIcon() {
-        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline" viewBox="0 0 16 16" style="--encore-icon-height: var(--encore-graphic-size-decorative-smaller); --encore-icon-width: var(--encore-graphic-size-decorative-smaller);"><circle cx="2" cy="3" r="1.5" fill="currentColor"/><circle cx="6" cy="3" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="10" cy="3" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="3" r="1.5" fill="currentColor"/><path d="M3.5 3h1m3 0h2m3 0h1" stroke="currentColor" stroke-width="1"/><path d="M14 4.5c0 2-2 3-6 3s-6 1-6 2" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="2" cy="13" r="1.5" fill="currentColor"/><circle cx="6" cy="13" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="10" cy="13" r="1" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="13" r="1.5" fill="currentColor"/><path d="M3.5 13h1m3 0h2m3 0h1" stroke="currentColor" stroke-width="1"/><path d="M2 10.5c0 1 2 1.5 6 1.5s6-.5 6-1.5" stroke="currentColor" stroke-width="1" fill="none"/></svg>`;
+        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 3a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm4 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm3 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM3.5 3h1m3 0h2m3 0h1" stroke="currentColor"/><path d="M14 4.5c0 2-2 3-6 3s-6 1-6 2" fill="none" stroke="currentColor"/><path d="M2 10.5c0 1 2 1.5 6 1.5s6-.5 6-1.5" fill="none" stroke="currentColor"/><circle cx="2" cy="13" r="1.5" fill="currentColor"/><circle cx="6" cy="13" r="1" stroke="currentColor" fill="none"/><circle cx="10" cy="13" r="1" stroke="currentColor" fill="none"/><circle cx="14" cy="13" r="1.5" fill="currentColor"/></svg>`;
     }
 
-    /**
-     * Checkmark icon used by Spotify
-     */
     getCheckmarkIcon() {
-        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline YP0GJXkJCEklub1V" viewBox="0 0 16 16" style="--encore-icon-height: var(--encore-graphic-size-decorative-smaller); --encore-icon-width: var(--encore-graphic-size-decorative-smaller);"><path d="M15.53 2.47a.75.75 0 0 1 0 1.06L4.907 14.153.47 9.716a.75.75 0 0 1 1.06-1.06l3.377 3.376L14.47 2.47a.75.75 0 0 1 1.06 0"></path></svg>`;
+        return `<svg role="img" aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M15.53 2.47a.75.75 0 0 1 0 1.06L4.907 14.153.47 9.716a.75.75 0 0 1 1.06-1.06l3.377 3.376L14.47 2.47a.75.75 0 0 1 1.06 0"></path></svg>`;
     }
 }

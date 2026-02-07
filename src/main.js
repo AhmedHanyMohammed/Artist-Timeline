@@ -105,9 +105,7 @@
                     const hasCards = element.querySelector('[class*="Card"]') || 
                                     element.closest('section')?.querySelector('[class*="Card"]');
                     
-                    if (hasCards || attempt > 15) {
-                        console.log(`[Timeline] Found container with: ${selector}`);
-                        
+                    if (hasCards || attempt > 15) {                        
                         // Return the parent that contains all cards
                         const cardContainer = element.closest('section') || 
                                             element.closest('[data-testid="grid-container"]') ||
@@ -125,7 +123,6 @@
                                 cards[0].closest('section') ||
                                 cards[0].parentElement?.parentElement;
                 if (container) {
-                    console.log('[Timeline] Found container via card elements');
                     return container;
                 }
             }
@@ -155,5 +152,4 @@
         timelineCore.destroy();
     });
 
-    console.log('[Timeline] ✓✓✓ Extension loaded successfully!');
 })();
