@@ -68,17 +68,40 @@ class MenuInjector {
      * Find the combobox button
      */
     async findComboboxButton() {
-        // Expanded selectors to be safer
+        // Expanded selectors to handle different Spotify versions
         const selectors = [
             'button[aria-controls="sort-and-view-picker"]',
             'button[role="combobox"][aria-haspopup="true"]',
-            'button[data-testid="sort-and-view-picker-button"]' 
+            'button[data-testid="sort-and-view-picker-button"]',
+            'button[aria-haspopup="listbox"]',
+            'button[aria-haspopup="menu"]',
+            // Try finding by button near the discography section
+            '[data-testid="artist-page"] button[aria-haspopup]',
+            '[data-testid="artist-page"] button[role="combobox"]',
+            // Generic combobox button
+            'button:has([class*="dropdown"], [class*="menu"], [class*="sort"], [class*="view"])'
         ];
-        
-        for (let attempt = 0; attempt < 20; attempt++) {
+
+        for (let attempt = 0; attempt < 30; attempt++) {
             for (const selector of selectors) {
                 const button = document.querySelector(selector);
-                if (button) return button;
+                if (button) {
+                    // Validate it's likely the sort/view button
+                    const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
+                    const title = button.getAttribute('title')?.toLowerCase() || '';
+                    const text = button.textContent?.toLowerCase() || '';
+
+                    // Check if it looks like a sort/view button
+                    const isSortViewButton = ariaLabel.includes('sort') || ariaLabel.includes('view') ||
+                                           title.includes('sort') || title.includes('view') ||
+                                           text.includes('sort') || text.includes('view') ||
+                                           text.length === 0; // Icon-only buttons are common
+
+                    if (isSortViewButton) {
+                        console.log(`[MenuInjector] Found combobox via: ${selector}`);
+                        return button;
+                    }
+                }
             }
             await new Promise(resolve => setTimeout(resolve, 250));
         }
@@ -117,21 +140,27 @@ class MenuInjector {
 
     /**
      * Validates if a node is the correct "Sort & View" menu
-     * Uses text content matching which is more reliable than IDs
+     * Uses text content matching and structure validation
      */
     isValidMenu(node) {
         // 1. Must be a menu-like element
         const isMenu = (node.tagName === 'UL' || node.getAttribute?.('role') === 'menu') ||
                        node.querySelector?.('ul[role="menu"]');
-        
+
         if (!isMenu) return false;
 
-        // 2. Must contain specific keywords unique to this menu
+        // 2. Check for menu items with specific keywords
         const text = node.textContent || '';
-        const hasKeywords = (text.includes('Sort') || text.includes('View as')) && 
-                            (text.includes('Grid') || text.includes('List'));
-        
-        return hasKeywords;
+
+        // Must have at least one view option (Grid or List)
+        const hasViewOption = text.includes('Grid') || text.includes('List');
+
+        // Should have sort options (but be lenient - might be translated or have different names)
+        const hasSortLike = text.includes('Sort') || text.includes('Release') ||
+                           text.includes('Name') || text.length > 50;
+
+        // Valid if it has view options and looks like a sort menu
+        return hasViewOption && hasSortLike;
     }
 
     /**

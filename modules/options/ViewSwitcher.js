@@ -23,7 +23,7 @@ class ViewSwitcher {
      */
     async switchToTimeline(viewType = 'timeline-horizontal') {
         console.log('[ViewSwitcher] Switching to timeline:', viewType);
-        
+
         const orientation = viewType === 'timeline-vertical' ? 'vertical' : 'horizontal';
         this.core.config.set('orientation', orientation);
 
@@ -46,11 +46,14 @@ class ViewSwitcher {
         // Render timeline
         this.core.renderTimeline(releases);
 
+        // Add view switcher controls
+        this.addViewControls();
+
         // Update state
         this.core.state.saveViewPref(viewType);
-        this.core.state.update({ 
+        this.core.state.update({
             isTimelineActive: true,
-            currentView: viewType 
+            currentView: viewType
         });
 
         // Update fallback button if exists
@@ -58,6 +61,64 @@ class ViewSwitcher {
 
         const viewName = orientation === 'vertical' ? 'Snake' : 'Horizontal';
         Spicetify.showNotification(`Timeline (${viewName}) activated`, false, 2000);
+    }
+
+    /**
+     * Add view switcher controls to timeline
+     */
+    addViewControls() {
+        const timelineContainer = this.core.state.timelineContainer;
+        if (!timelineContainer) return;
+
+        // Check if controls already exist
+        if (timelineContainer.querySelector('.timeline-view-controls')) {
+            return;
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'timeline-view-controls';
+        controls.setAttribute('role', 'group');
+        controls.setAttribute('aria-label', 'Timeline view options');
+
+        // Horizontal button
+        const horizButton = document.createElement('button');
+        horizButton.className = 'timeline-view-btn timeline-view-btn--horizontal';
+        horizButton.setAttribute('aria-label', 'Horizontal timeline view');
+        horizButton.setAttribute('title', 'Horizontal view');
+        horizButton.innerHTML = '⟷'; // Horizontal arrow
+
+        const isHorizontal = this.core.config.get('orientation') === 'horizontal';
+        if (isHorizontal) {
+            horizButton.classList.add('timeline-view-btn--active');
+            horizButton.setAttribute('aria-pressed', 'true');
+        }
+
+        horizButton.addEventListener('click', () => {
+            this.switchToTimeline('timeline-horizontal');
+        });
+
+        // Vertical button
+        const vertButton = document.createElement('button');
+        vertButton.className = 'timeline-view-btn timeline-view-btn--vertical';
+        vertButton.setAttribute('aria-label', 'Vertical/Snake timeline view');
+        vertButton.setAttribute('title', 'Vertical (Snake) view');
+        vertButton.innerHTML = '⟺'; // Vertical arrow
+
+        const isVertical = this.core.config.get('orientation') === 'vertical';
+        if (isVertical) {
+            vertButton.classList.add('timeline-view-btn--active');
+            vertButton.setAttribute('aria-pressed', 'true');
+        }
+
+        vertButton.addEventListener('click', () => {
+            this.switchToTimeline('timeline-vertical');
+        });
+
+        controls.appendChild(horizButton);
+        controls.appendChild(vertButton);
+
+        // Insert at top of timeline
+        timelineContainer.insertBefore(controls, timelineContainer.firstChild);
     }
 
     /**
@@ -140,14 +201,19 @@ class ViewSwitcher {
     async refresh() {
         if (!this.core.state.isTimelineActive) return;
 
-        console.log('[ViewSwitcher] Refreshing timeline');
-        
+        console.log('[ViewSwitcher] Refreshing timeline with sort order:', this.core.state.sortOrder);
+
         let releases = this.core.dataExtractor.extractFromDOM(this.core.state.originalGridContainer);
-        
+
         if (releases && releases.length > 0) {
-            // Apply sort order
+            // Always apply sort order after extracting new data
             releases = this.applySortOrder(releases);
             this.core.renderTimeline(releases);
+
+            // Re-add view controls after render
+            this.addViewControls();
+
+            Spicetify.showNotification(`Showing ${releases.length} releases`, false, 1500);
         } else {
             console.log('[ViewSwitcher] No releases found for current filter');
         }

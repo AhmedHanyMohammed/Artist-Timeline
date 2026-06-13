@@ -318,6 +318,47 @@
 .timeline-scroll-button:disabled {
     opacity: 0;
     pointer-events: none;
+}
+
+/* ========================================
+   VIEW SWITCHER CONTROLS
+   ======================================== */
+.timeline-view-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 0 24px 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.timeline-view-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    background-color: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--spice-text, #ffffff);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+}
+
+.timeline-view-btn:hover {
+    background-color: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.timeline-view-btn--active {
+    background-color: var(--spice-main, #1db954);
+    border-color: var(--spice-main, #1db954);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(29, 185, 84, 0.3);
 }`;
     if (!document.getElementById('artist-timeline-styles')) {
         document.head.appendChild(style);
@@ -1499,17 +1540,40 @@ class MenuInjector {
      * Find the combobox button
      */
     async findComboboxButton() {
-        // Expanded selectors to be safer
+        // Expanded selectors to handle different Spotify versions
         const selectors = [
             'button[aria-controls="sort-and-view-picker"]',
             'button[role="combobox"][aria-haspopup="true"]',
-            'button[data-testid="sort-and-view-picker-button"]' 
+            'button[data-testid="sort-and-view-picker-button"]',
+            'button[aria-haspopup="listbox"]',
+            'button[aria-haspopup="menu"]',
+            // Try finding by button near the discography section
+            '[data-testid="artist-page"] button[aria-haspopup]',
+            '[data-testid="artist-page"] button[role="combobox"]',
+            // Generic combobox button
+            'button:has([class*="dropdown"], [class*="menu"], [class*="sort"], [class*="view"])'
         ];
-        
-        for (let attempt = 0; attempt < 20; attempt++) {
+
+        for (let attempt = 0; attempt < 30; attempt++) {
             for (const selector of selectors) {
                 const button = document.querySelector(selector);
-                if (button) return button;
+                if (button) {
+                    // Validate it's likely the sort/view button
+                    const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
+                    const title = button.getAttribute('title')?.toLowerCase() || '';
+                    const text = button.textContent?.toLowerCase() || '';
+
+                    // Check if it looks like a sort/view button
+                    const isSortViewButton = ariaLabel.includes('sort') || ariaLabel.includes('view') ||
+                                           title.includes('sort') || title.includes('view') ||
+                                           text.includes('sort') || text.includes('view') ||
+                                           text.length === 0; // Icon-only buttons are common
+
+                    if (isSortViewButton) {
+                        console.log(`[MenuInjector] Found combobox via: ${selector}`);
+                        return button;
+                    }
+                }
             }
             await new Promise(resolve => setTimeout(resolve, 250));
         }
@@ -1548,21 +1612,27 @@ class MenuInjector {
 
     /**
      * Validates if a node is the correct "Sort & View" menu
-     * Uses text content matching which is more reliable than IDs
+     * Uses text content matching and structure validation
      */
     isValidMenu(node) {
         // 1. Must be a menu-like element
         const isMenu = (node.tagName === 'UL' || node.getAttribute?.('role') === 'menu') ||
                        node.querySelector?.('ul[role="menu"]');
-        
+
         if (!isMenu) return false;
 
-        // 2. Must contain specific keywords unique to this menu
+        // 2. Check for menu items with specific keywords
         const text = node.textContent || '';
-        const hasKeywords = (text.includes('Sort') || text.includes('View as')) && 
-                            (text.includes('Grid') || text.includes('List'));
-        
-        return hasKeywords;
+
+        // Must have at least one view option (Grid or List)
+        const hasViewOption = text.includes('Grid') || text.includes('List');
+
+        // Should have sort options (but be lenient - might be translated or have different names)
+        const hasSortLike = text.includes('Sort') || text.includes('Release') ||
+                           text.includes('Name') || text.length > 50;
+
+        // Valid if it has view options and looks like a sort menu
+        return hasViewOption && hasSortLike;
     }
 
     /**
@@ -1844,7 +1914,7 @@ class ViewSwitcher {
      */
     async switchToTimeline(viewType = 'timeline-horizontal') {
         console.log('[ViewSwitcher] Switching to timeline:', viewType);
-        
+
         const orientation = viewType === 'timeline-vertical' ? 'vertical' : 'horizontal';
         this.core.config.set('orientation', orientation);
 
@@ -1867,11 +1937,14 @@ class ViewSwitcher {
         // Render timeline
         this.core.renderTimeline(releases);
 
+        // Add view switcher controls
+        this.addViewControls();
+
         // Update state
         this.core.state.saveViewPref(viewType);
-        this.core.state.update({ 
+        this.core.state.update({
             isTimelineActive: true,
-            currentView: viewType 
+            currentView: viewType
         });
 
         // Update fallback button if exists
@@ -1879,6 +1952,64 @@ class ViewSwitcher {
 
         const viewName = orientation === 'vertical' ? 'Snake' : 'Horizontal';
         Spicetify.showNotification(`Timeline (${viewName}) activated`, false, 2000);
+    }
+
+    /**
+     * Add view switcher controls to timeline
+     */
+    addViewControls() {
+        const timelineContainer = this.core.state.timelineContainer;
+        if (!timelineContainer) return;
+
+        // Check if controls already exist
+        if (timelineContainer.querySelector('.timeline-view-controls')) {
+            return;
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'timeline-view-controls';
+        controls.setAttribute('role', 'group');
+        controls.setAttribute('aria-label', 'Timeline view options');
+
+        // Horizontal button
+        const horizButton = document.createElement('button');
+        horizButton.className = 'timeline-view-btn timeline-view-btn--horizontal';
+        horizButton.setAttribute('aria-label', 'Horizontal timeline view');
+        horizButton.setAttribute('title', 'Horizontal view');
+        horizButton.innerHTML = '⟷'; // Horizontal arrow
+
+        const isHorizontal = this.core.config.get('orientation') === 'horizontal';
+        if (isHorizontal) {
+            horizButton.classList.add('timeline-view-btn--active');
+            horizButton.setAttribute('aria-pressed', 'true');
+        }
+
+        horizButton.addEventListener('click', () => {
+            this.switchToTimeline('timeline-horizontal');
+        });
+
+        // Vertical button
+        const vertButton = document.createElement('button');
+        vertButton.className = 'timeline-view-btn timeline-view-btn--vertical';
+        vertButton.setAttribute('aria-label', 'Vertical/Snake timeline view');
+        vertButton.setAttribute('title', 'Vertical (Snake) view');
+        vertButton.innerHTML = '⟺'; // Vertical arrow
+
+        const isVertical = this.core.config.get('orientation') === 'vertical';
+        if (isVertical) {
+            vertButton.classList.add('timeline-view-btn--active');
+            vertButton.setAttribute('aria-pressed', 'true');
+        }
+
+        vertButton.addEventListener('click', () => {
+            this.switchToTimeline('timeline-vertical');
+        });
+
+        controls.appendChild(horizButton);
+        controls.appendChild(vertButton);
+
+        // Insert at top of timeline
+        timelineContainer.insertBefore(controls, timelineContainer.firstChild);
     }
 
     /**
@@ -1961,14 +2092,19 @@ class ViewSwitcher {
     async refresh() {
         if (!this.core.state.isTimelineActive) return;
 
-        console.log('[ViewSwitcher] Refreshing timeline');
-        
+        console.log('[ViewSwitcher] Refreshing timeline with sort order:', this.core.state.sortOrder);
+
         let releases = this.core.dataExtractor.extractFromDOM(this.core.state.originalGridContainer);
-        
+
         if (releases && releases.length > 0) {
-            // Apply sort order
+            // Always apply sort order after extracting new data
             releases = this.applySortOrder(releases);
             this.core.renderTimeline(releases);
+
+            // Re-add view controls after render
+            this.addViewControls();
+
+            Spicetify.showNotification(`Showing ${releases.length} releases`, false, 1500);
         } else {
             console.log('[ViewSwitcher] No releases found for current filter');
         }
