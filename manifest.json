@@ -1,0 +1,14 @@
+{
+  "name": "Artist Timeline",
+  "description": "A unique way to view an artist's discography through an interactive timeline",
+  "main": "dist/artistTimeline.js",
+  "authors": [
+    {
+      "name": "AhmedHanyMohammed",
+      "url": "https://github.com/AhmedHanyMohammed"
+    }
+  ],
+  "preview": "media/preview.png",
+  "readme": "README.md",
+  "tags": ["artist", "discography", "timeline"]
+}

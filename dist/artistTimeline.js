@@ -1,0 +1,2697 @@
+
+// ============================================
+// Artist Discography Timeline - Bundled Build
+// Author: AhmedHanyMohammed
+// ============================================
+
+(function() {
+    const style = document.createElement('style');
+    style.id = 'artist-timeline-styles';
+    style.textContent = `/**
+ * Artist Timeline Styles
+ * Updated with Snake Layout and Glow Effects
+ */
+
+/* ========================================
+   TIMELINE BUTTON
+   ======================================== */
+.timeline-view-button {
+    padding: 8px 16px;
+    margin: 0 4px;
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--spice-subtext, #b3b3b3);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.timeline-view-button:hover {
+    background-color: var(--spice-button-active, rgba(255, 255, 255, 0.1));
+    color: var(--spice-text, #ffffff);
+}
+
+.timeline-view-button--active {
+    background-color: var(--spice-button, rgba(255, 255, 255, 0.07));
+    color: var(--spice-text, #ffffff);
+}
+
+.timeline-orientation-button {
+    padding: 8px; /* Square button */
+}
+
+/* ========================================
+   TIMELINE CONTAINER
+   ======================================== */
+.timeline-view {
+    position: relative;
+    padding: 60px 20px;
+    min-height: 400px;
+    /* Default scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--spice-button, rgba(255, 255, 255, 0.1)) transparent;
+}
+
+/* ========================================
+   HORIZONTAL LAYOUT
+   ======================================== */
+.timeline--horizontal .timeline-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--spice-button, rgba(255, 255, 255, 0.1));
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.timeline--horizontal .timeline-cards {
+    display: flex;
+    align-items: center; /* Center cards on the line */
+    gap: 48px; /* Default gap, overridden by JS if proportional */
+    padding: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+/* ========================================
+   SNAKE (VERTICAL) LAYOUT
+   ======================================== */
+.timeline--vertical-snake .timeline-snake-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1200px;
+    width: 100%;
+    padding: 0 24px;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.timeline-snake-row {
+    display: flex;
+    position: relative;
+    padding: 40px 24px;
+    width: 100%;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.timeline-snake-row--reverse {
+    flex-direction: row-reverse; /* Reverse R->L */
+}
+
+/* The horizontal line for each row */
+.timeline-snake-line {
+    position: absolute;
+    top: 50%;
+    left: 24px;
+    right: 24px;
+    height: 2px;
+    background-color: var(--spice-button, rgba(255, 255, 255, 0.1));
+    z-index: 0;
+    transform: translateY(-50%);
+}
+
+/* Turns (Curves connecting rows) */
+.timeline-snake-turn {
+    width: calc(100% - 48px);
+    height: 80px; /* Vertical gap between rows */
+    position: relative;
+    margin-top: -40px; /* Overlap to connect lines */
+    margin-bottom: -40px;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Right Turn: Connects end of Row 1 (Right) to start of Row 2 (Right) */
+.timeline-snake-turn--right {
+    border-right: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-bottom: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top-right-radius: 40px;
+    border-bottom-right-radius: 40px;
+    width: 50%;
+    margin-left: 50%; /* Shift to right half */
+}
+
+/* Left Turn: Connects end of Row 2 (Left) to start of Row 3 (Left) */
+.timeline-snake-turn--left {
+    border-left: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-bottom: 2px solid var(--spice-button, rgba(255, 255, 255, 0.1));
+    border-top-left-radius: 40px;
+    border-bottom-left-radius: 40px;
+    width: 50%;
+    margin-right: 50%; /* Shift to left half */
+}
+
+
+/* ========================================
+   TIMELINE CARDS
+   ======================================== */
+.timeline-card {
+    flex-shrink: 0;
+    width: 220px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    outline: none;
+    position: relative;
+    z-index: 2; /* Above lines */
+}
+
+.timeline-card:hover {
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+/* Marker (Dot) */
+.timeline-card__marker {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--spice-text, #ffffff);
+    margin: 0 auto 16px; /* Centered above content */
+    box-shadow: 0 0 0 4px var(--spice-main-transition, #121212); /* Fake border to mask line */
+}
+
+/* GLOW EFFECT & PLAYING STATE */
+.timeline-card--playing .timeline-card__marker {
+    background-color: var(--spice-main, #1db954);
+    box-shadow: 0 0 15px 2px var(--spice-main, #1db954);
+    animation: pulse 2s infinite;
+}
+
+.timeline-card--playing .timeline-card__image {
+    box-shadow: 0 0 25px 5px rgba(29, 185, 84, 0.5); /* Green glow behind image */
+    border: 2px solid var(--spice-main, #1db954);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Card Content */
+.timeline-card__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 200px;
+    background-color: var(--spice-main-transition, #121212); /* Background to cover line if needed */
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.timeline-card__image-wrapper {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin-bottom: 12px;
+}
+
+.timeline-card__image {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s ease;
+}
+
+/* Play Button */
+.timeline-card__play-button {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--spice-main, #1db954);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.timeline-card__image-wrapper:hover .timeline-card__play-button {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.timeline-card__play-button:hover {
+    background-color: #1ed760;
+    transform: scale(1.1);
+}
+
+.timeline-card__play-button svg {
+    width: 20px;
+    height: 20px;
+    fill: #000000;
+}
+
+/* Text Info */
+.timeline-card__info {
+    text-align: center;
+}
+
+.timeline-card__title {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--spice-text, #ffffff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.timeline-card__meta {
+    font-size: 13px;
+    color: var(--spice-subtext, #b3b3b3);
+}
+
+/* ========================================
+   SCROLL BUTTONS (Horizontal Only)
+   ======================================== */
+.timeline-scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(0,0,0, 0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    transition: all 0.2s ease;
+    opacity: 0; /* Hidden by default, show on hover of container */
+}
+
+.timeline-view:hover .timeline-scroll-button {
+    opacity: 1;
+}
+
+.timeline-scroll-button:hover {
+    background-color: rgba(0,0,0, 0.8);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.timeline-scroll-button--left { left: 10px; }
+.timeline-scroll-button--right { right: 10px; }
+
+.timeline-scroll-button svg {
+    width: 24px;
+    height: 24px;
+    fill: #ffffff;
+}
+
+.timeline-scroll-button:disabled {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ========================================
+   VIEW SWITCHER CONTROLS
+   ======================================== */
+.timeline-view-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 0 24px 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.timeline-view-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    background-color: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--spice-text, #ffffff);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+}
+
+.timeline-view-btn:hover {
+    background-color: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.timeline-view-btn--active {
+    background-color: var(--spice-main, #1db954);
+    border-color: var(--spice-main, #1db954);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(29, 185, 84, 0.3);
+}`;
+    if (!document.getElementById('artist-timeline-styles')) {
+        document.head.appendChild(style);
+    }
+})();
+
+
+// ========== modules/Config.js ==========
+class Config {
+    constructor() {
+        this.Storage_Key = 'artist_timeline_config';
+        this.Defaults = {
+            orientation : 'horizontal',
+            cardSize : 'medium',
+            autoScrollToPlay : true,
+            animationSpeed : 0,
+        };
+        this.config = this.load();
+    }
+
+    load() {
+        try{
+            const saved = localStorage.getItem(this.Storage_Key);
+            if(saved){
+                return {...this.Defaults, ...JSON.parse(saved)};
+            }
+        }
+        catch (error) {
+            console.error('Error loading config:', error);
+        }
+        return {...this.Defaults};
+    }
+
+    // How It works:
+    // Take the config object
+    // Convert it to a JSON string
+    // Save it to localstorage
+    save(config) {
+        try{
+            const jsonString = JSON.stringify(config);
+            localStorage.setItem(this.Storage_Key, jsonString);
+            this.config = config;
+        }
+        catch (error) {
+            console.error('Error saving config:', error);
+        }
+    }
+
+    get(key) {
+        return this.config[key];
+    }
+
+    set(key, value) {
+        this.config[key] = value;
+        this.save(this.config);
+    }
+
+    reset() {
+        this.config = {...this.Defaults};
+        this.save(this.config);
+    }
+}
+
+// ========== modules/State.js ==========
+class State {
+    constructor() {
+        // View preferences key
+        this.VIEW_PREF_KEY = 'artist-timeline-view-preference';
+        this.SORT_ORDER_KEY = 'artist-timeline-sort-order';
+
+        this.currentArtistId = null;
+        this.currentView = this.loadViewPref();
+        this.sortOrder = this.loadSortOrder();
+        this.isTimelineActive = false;
+        this.timelineContainer = null;
+        this.originalGridContainer = null;
+        this.injectedButton = null;
+        this.comboboxButton = null;
+        this.lastPathname = null;
+    }
+
+    loadViewPref() {
+        return localStorage.getItem(this.VIEW_PREF_KEY) || 'grid';
+    }
+
+    saveViewPref(view) {
+        localStorage.setItem(this.VIEW_PREF_KEY, view);
+        this.currentView = view;
+    }
+
+    loadSortOrder() {
+        return localStorage.getItem(this.SORT_ORDER_KEY) || 'desc';
+    }
+
+    saveSortOrder(order) {
+        localStorage.setItem(this.SORT_ORDER_KEY, order);
+        this.sortOrder = order;
+    }
+
+    update(updates) {
+        // If sortOrder is being updated, save it
+        if (updates.sortOrder) {
+            this.saveSortOrder(updates.sortOrder);
+        }
+        Object.assign(this, updates);
+    }
+
+    reset() {
+        this.currentArtistId = null;
+        this.currentView = this.loadViewPref();
+        this.sortOrder = this.loadSortOrder();
+        this.isTimelineActive = false;
+        this.timelineContainer = null;
+        this.originalGridContainer = null;
+        this.injectedButton = null;
+        this.comboboxButton = null;
+        this.lastPathname = null;
+    }
+}
+
+// ========== modules/DOMUtils.js ==========
+class DOMUtils {
+    static waitForElement(selector, timeout = 5000) {
+        return new Promise((resolve, reject) => {
+            const existingElement = document.querySelector(selector);
+            if (existingElement) {
+                return resolve(existingElement);
+            }
+
+            const timeoutId = setTimeout(() => {
+                observer.disconnect();
+                reject(new Error(`Timeout, Element with selector "${selector}" not found within ${timeout}ms`));
+            }, timeout);
+
+            // Create a MutationObserver to watch for changes in the DOM
+            const observer = new MutationObserver((mutations) => {
+                const element = document.querySelector(selector);
+                if (element) {
+                    clearTimeout(timeoutId); // Clear the timeout
+                    observer.disconnect();  // Stop observing
+                    resolve(element);
+                }
+            });
+            observer.observe(document.body, {
+                childList: true, subtree: true
+            });// Start observing the body for added nodes
+        });
+    }
+
+    static extractArtistId(url) {
+        const match = url.match(/artist\/([a-zA-Z0-9]+)/);
+        return match ? match[1] : null;
+    }
+
+    // boolean - now includes discography pages
+    static isArtistPage(url) {
+        return url.match(/^\/?artist\/[a-zA-Z0-9]+/) !== null;
+    }
+
+    static isDiscographyPage(url) {
+        return url.match(/^\/?artist\/[a-zA-Z0-9]+\/discography/) !== null;
+    }
+
+    // limiter how often a function can run
+    static debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                func(...args);
+            } , wait);
+        }
+    }
+}
+
+// ========== modules/Navigator.js ==========
+class Navigator {
+    constructor(state, onArtistPageDetected) {
+        this.state = state;
+        this.onArtistPageDetected = onArtistPageDetected;
+        // Get Spotify's History API
+        // This is what lets us detect navigation
+        this.History = Spicetify.Platform.History;
+    }
+
+    start() {
+        // Get current location (where user is right now)
+        const currentLocation = this.History.location;
+        this.handleNavigation(currentLocation);
+
+        // Listen for future navigation changes
+        // History.listen() returns a function to stop listening
+        this.unlistener = this.History.listen((location) => {
+            // This callback runs every time URL changes
+            this.handleNavigation(location);
+        });
+    }
+
+    stop(){
+       if(this.unlistener){
+           this.unlistener();
+           this.unlistener = null;
+       }
+    }
+
+    handleNavigation(location) {
+        const pathname = location.pathname;
+
+        // Skip if we're already on this exact page
+        // This prevents processing the same page multiple times
+        if (pathname === this.state.lastPathname) {
+            return; // Exit early, nothing to do
+        }
+        this.state.update({ lastPathname: pathname });
+
+        // Check if it's an artist page
+        if (!DOMUtils.isArtistPage(pathname)) {
+            if(this.state.isTimelineActive)
+                this.cleanup();
+            return; // Not an artist page, exit early
+        }
+        const artistId = DOMUtils.extractArtistId(pathname);
+
+        // Validate artistId
+        if (!artistId) {
+            console.warn("Navigator: Invalid artist ID extracted.");
+            return; // Invalid artist ID, exit early
+        }
+
+        this.state.update({ currentArtistId: artistId });
+
+        // Save to localStorage
+        localStorage.setItem('lastArtistId', artistId);
+
+        // Notify that we're on an artist page
+        this.onArtistPageDetected(artistId);
+    }
+
+    // Removes the element in the DOM that we created
+    cleanup() {
+        if (this.state.timelineContainer)
+            this.state.timelineContainer.remove();
+
+        if (this.state.injectedButton)
+            this.state.injectedButton.remove();
+        // Only restore if we actually hid it
+        if (this.state.originalGridContainer && this.state.isTimelineActive)
+            this.state.originalGridContainer.style.display = '';
+
+        this.state.reset();
+    }
+}
+
+// ========== modules/DataExtractor.js ==========
+/**
+ * DataExtractor - Extracts release data from DOM and GraphQL
+ *
+ * Responsibilities:
+ * - Extract release information from DOM (cards in discography grid)
+ * - Fallback to GraphQL when DOM data is incomplete
+ * - Merge and normalize data from both sources
+ * - Handle missing data gracefully
+ */
+class DataExtractor {
+    constructor() {
+        this.lastExtractedData = null;
+    }
+
+    /**
+     * Extract release data from DOM
+     * @param {HTMLElement} container - Discography container element
+     * @returns {Array} Array of release objects
+     */
+    extractFromDOM(container) {
+        if (!container) {
+            console.warn('[DataExtractor] No container provided');
+            return [];
+        }
+
+        const releases = [];
+
+        // Try multiple selectors to find album cards
+        const cardSelectors = [
+            '[data-testid="card-item"]',
+            '[data-testid="grid-card"]',
+            '.main-card-card',
+            '[class*="Card"]',
+            'article',
+        ];
+
+        let cards = [];
+        for (const selector of cardSelectors) {
+            cards = container.querySelectorAll(selector);
+            if (cards.length > 0) {
+                console.log(`[DataExtractor] Found ${cards.length} cards using: ${selector}`);
+                break;
+            }
+        }
+
+        if (cards.length === 0) {
+            console.warn('[DataExtractor] No album cards found in DOM');
+            return releases;
+        }
+
+        cards.forEach((card, index) => {
+            try {
+                const release = this.extractReleaseFromCard(card, index);
+                if (release) {
+                    releases.push(release);
+                }
+            } catch (error) {
+                console.warn('[DataExtractor] Error extracting card data:', error);
+            }
+        });
+
+        console.log(`[DataExtractor] Extracted ${releases.length} releases from DOM`);
+        this.lastExtractedData = releases;
+        return releases;
+    }
+
+    /**
+     * Extract release data from a single card element
+     * @param {HTMLElement} card - Card element
+     * @param {number} index - Card index
+     * @returns {Object|null} Release object or null
+     */
+    extractReleaseFromCard(card, index) {
+        // Extract URI (most reliable identifier)
+        const uri = this.extractUri(card);
+        if (!uri) {
+            console.warn('[DataExtractor] Card missing URI, skipping');
+            return null;
+        }
+
+        // Extract other data
+        const name = this.extractName(card);
+        const image = this.extractImage(card);
+        const type = this.extractType(card);
+        const dateInfo = this.extractDateInfo(card);
+
+        return {
+            uri,
+            name: name || 'Unknown Album',
+            image: image || this.getPlaceholderImage(),
+            type: type || null,
+            date: dateInfo.date || null,
+            datePrecision: dateInfo.precision,
+            isPlaying: this.isCurrentlyPlaying(uri),
+            index
+        };
+    }
+
+    /**
+     * Extract URI from card
+     * @param {HTMLElement} card - Card element
+     * @returns {string|null} Spotify URI
+     */
+    extractUri(card) {
+        // Try data attribute
+        const dataUri = card.getAttribute('data-uri');
+        if (dataUri) return dataUri;
+
+        // Try link href
+        const link = card.querySelector('a[href*="/album/"]');
+        if (link) {
+            const albumId = link.href.match(/\/album\/([a-zA-Z0-9]+)/)?.[1];
+            if (albumId) return `spotify:album:${albumId}`;
+        }
+
+        // Try button or play elements
+        const playButton = card.querySelector('[data-uri]');
+        if (playButton) {
+            return playButton.getAttribute('data-uri');
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract album/release name from card
+     * @param {HTMLElement} card - Card element
+     * @returns {string|null} Album name
+     */
+    extractName(card) {
+        // Try multiple selectors
+        const selectors = [
+            '[data-testid="card-title"]',
+            '.main-card-card-title',
+            '.main-cardHeader-text',
+            'h3',
+            'h4',
+            '[class*="title"]',
+        ];
+
+        for (const selector of selectors) {
+            const element = card.querySelector(selector);
+            if (element?.textContent) {
+                return element.textContent.trim();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract cover image from card
+     * @param {HTMLElement} card - Card element
+     * @returns {string|null} Image URL
+     */
+    extractImage(card) {
+        // Try img tag
+        const img = card.querySelector('img');
+        if (img?.src) {
+            return img.src;
+        }
+
+        // Try background image
+        const imageContainer = card.querySelector('[style*="background-image"]');
+        if (imageContainer) {
+            const bgImage = imageContainer.style.backgroundImage;
+            const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match) return match[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract release type (Album, Single, EP, etc.)
+     * @param {HTMLElement} card - Card element
+     * @returns {string|null} Release type
+     */
+    extractType(card) {
+        // Try subtitle/meta elements
+        const selectors = [
+            '[data-testid="card-subtitle"]',
+            '.main-card-card-subtitle',
+            '.main-cardSubHeader-text',
+            '[class*="subtitle"]',
+        ];
+
+        for (const selector of selectors) {
+            const element = card.querySelector(selector);
+            if (element?.textContent) {
+                const text = element.textContent.trim();
+                const normalized = this.normalizeType(text.split('•')[0].trim());
+                if (normalized) return normalized;
+            }
+        }
+
+        // Fallback: inspect any text around the card for known type words.
+        const fullText = card.textContent?.toLowerCase() || '';
+        if (fullText.includes('single')) return 'Single';
+        if (fullText.includes('ep')) return 'EP';
+        if (fullText.includes('compilation')) return 'Compilation';
+        if (fullText.includes('album')) return 'Album';
+
+        return null;
+    }
+
+    /**
+     * Extract release date from card
+     * @param {HTMLElement} card - Card element
+     * @returns {Date|null} Release date
+     */
+    extractDate(card) {
+        return this.extractDateInfo(card).date;
+    }
+
+    /**
+     * Extract release date with precision metadata
+     * @param {HTMLElement} card - Card element
+     * @returns {{date: Date|null, precision: 'none'|'year'|'month'|'day'}}
+     */
+    extractDateInfo(card) {
+        // Try time element
+        const timeElement = card.querySelector('time[datetime]');
+        if (timeElement) {
+            const datetime = timeElement.getAttribute('datetime');
+            if (datetime) {
+                const date = new Date(datetime);
+                if (!isNaN(date.getTime())) {
+                    const precision = /^\d{4}-\d{2}-\d{2}/.test(datetime) ? 'day' :
+                                      /^\d{4}-\d{2}/.test(datetime) ? 'month' : 'year';
+                    return { date, precision };
+                }
+            }
+        }
+
+        // Try parsing from subtitle text (e.g., "Album • 2023")
+        const selectors = [
+            '[data-testid="card-subtitle"]',
+            '.main-card-card-subtitle',
+            '[class*="subtitle"]',
+        ];
+
+        for (const selector of selectors) {
+            const element = card.querySelector(selector);
+            if (element?.textContent) {
+                const text = element.textContent;
+
+                // Match full textual dates first (e.g., "May 14, 2022")
+                const fullDateMatch = text.match(/\b([A-Za-z]{3,9})\s+(\d{1,2}),?\s+((?:19|20)\d{2})\b/);
+                if (fullDateMatch) {
+                    const parsed = new Date(`${fullDateMatch[1]} ${fullDateMatch[2]}, ${fullDateMatch[3]}`);
+                    if (!isNaN(parsed.getTime())) {
+                        return { date: parsed, precision: 'day' };
+                    }
+                }
+
+                // Match month + year (e.g., "May 2022")
+                const monthYearMatch = text.match(/\b([A-Za-z]{3,9})\s+((?:19|20)\d{2})\b/);
+                if (monthYearMatch) {
+                    const parsed = new Date(`${monthYearMatch[1]} 1, ${monthYearMatch[2]}`);
+                    if (!isNaN(parsed.getTime())) {
+                        return { date: parsed, precision: 'month' };
+                    }
+                }
+
+                // Look for year (4 digits)
+                const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+                if (yearMatch) {
+                    const year = parseInt(yearMatch[0]);
+                    return { date: new Date(year, 0, 1), precision: 'year' };
+                }
+            }
+        }
+
+        return { date: null, precision: 'none' };
+    }
+
+    /**
+     * Check if a URI is currently playing
+     * @param {string} uri - Spotify URI
+     * @returns {boolean} True if playing
+     */
+    isCurrentlyPlaying(uri) {
+        try {
+            const currentTrack = Spicetify.Player?.data?.item;
+            if (!currentTrack) return false;
+
+            const currentAlbumUri = currentTrack.metadata?.album_uri;
+            return currentAlbumUri === uri;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Get placeholder image for missing album art
+     * @returns {string} Data URL for placeholder image
+     */
+    getPlaceholderImage() {
+        // Simple 1x1 gray pixel
+        return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMzMzMiLz48L3N2Zz4=';
+    }
+
+    /**
+     * Fetch release data using GraphQL as fallback
+     * @param {string} artistId - Spotify artist ID
+     * @returns {Promise<Array>} Array of release objects
+     */
+    async fetchFromGraphQL(artistId) {
+        if (!artistId) {
+            console.warn('[DataExtractor] No artist ID provided for GraphQL');
+            return [];
+        }
+
+        try {
+            console.log('[DataExtractor] Fetching from GraphQL for artist:', artistId);
+
+            // Use Spicetify's GraphQL API
+            const response = await Spicetify.GraphQL.Request(
+                Spicetify.GraphQL.Definitions.queryArtistDiscographyAll,
+                { uri: `spotify:artist:${artistId}` }
+            );
+
+            if (!response?.data?.artist?.discography) {
+                console.warn('[DataExtractor] No discography data in GraphQL response');
+                return [];
+            }
+
+            const releases = this.parseGraphQLResponse(response.data.artist.discography);
+            console.log(`[DataExtractor] Fetched ${releases.length} releases from GraphQL`);
+            return releases;
+        } catch (error) {
+            console.error('[DataExtractor] GraphQL fetch failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Parse GraphQL response into release objects
+     * @param {Object} discography - GraphQL discography object
+     * @returns {Array} Array of release objects
+     */
+    parseGraphQLResponse(discography) {
+        const releases = [];
+
+        // GraphQL returns releases in categories: albums, singles, compilations, etc.
+        const categories = ['albums', 'singles', 'compilations'];
+
+        categories.forEach(category => {
+            const items = discography[category]?.items || [];
+            items.forEach((item, index) => {
+                try {
+                    const release = this.parseGraphQLRelease(item, category);
+                    if (release) {
+                        releases.push(release);
+                    }
+                } catch (error) {
+                    console.warn('[DataExtractor] Error parsing GraphQL release:', error);
+                }
+            });
+        });
+
+        // Sort by date (newest first)
+        releases.sort((a, b) => {
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return b.date - a.date;
+        });
+
+        return releases;
+    }
+
+    /**
+     * Parse a single GraphQL release item
+     * @param {Object} item - GraphQL release item
+     * @param {string} category - Release category
+     * @returns {Object|null} Release object
+     */
+    parseGraphQLRelease(item, category) {
+        const uri = item.uri || item.releases?.items?.[0]?.uri;
+        if (!uri) return null;
+
+        // Extract release date
+        let date = null;
+        let datePrecision = 'none';
+        const dateString = item.date?.year
+            ? `${item.date.year}-${String(item.date.month || 1).padStart(2, '0')}-${String(item.date.day || 1).padStart(2, '0')}`
+            : null;
+        if (dateString) {
+            date = new Date(dateString);
+            if (isNaN(date.getTime())) date = null;
+            if (item.date?.day) datePrecision = 'day';
+            else if (item.date?.month) datePrecision = 'month';
+            else if (item.date?.year) datePrecision = 'year';
+        }
+
+        // Extract image
+        const image = item.coverArt?.sources?.[0]?.url || this.getPlaceholderImage();
+
+        // Normalize type
+        let type = this.normalizeType(item.type);
+        if (!type) {
+            if (category === 'singles') type = 'Single';
+            else if (category === 'compilations') type = 'Compilation';
+            else type = 'Album';
+        }
+
+        return {
+            uri,
+            name: item.name || 'Unknown Album',
+            image,
+            type,
+            date,
+            datePrecision,
+            isPlaying: this.isCurrentlyPlaying(uri),
+        };
+    }
+
+    /**
+     * Merge DOM and GraphQL data
+     * @param {Array} domReleases - Releases from DOM
+     * @param {Array} graphqlReleases - Releases from GraphQL
+     * @returns {Array} Merged releases
+     */
+    mergeData(domReleases, graphqlReleases) {
+        const merged = [...domReleases];
+        const domUris = new Set(domReleases.map(r => r.uri));
+
+        // Add GraphQL releases that aren't in DOM data
+        graphqlReleases.forEach(gqlRelease => {
+            const domRelease = merged.find(r => r.uri === gqlRelease.uri);
+
+            if (domRelease) {
+                // Merge: prefer DOM data but fill missing fields from GraphQL
+                if ((!domRelease.date && gqlRelease.date) || this.isDateMorePrecise(gqlRelease, domRelease)) {
+                    domRelease.date = gqlRelease.date;
+                    domRelease.datePrecision = gqlRelease.datePrecision || domRelease.datePrecision;
+                }
+                if (this.shouldReplaceType(domRelease.type, gqlRelease.type)) {
+                    domRelease.type = gqlRelease.type;
+                }
+                if (!domRelease.image || domRelease.image === this.getPlaceholderImage()) {
+                    domRelease.image = gqlRelease.image;
+                }
+            } else if (!domUris.has(gqlRelease.uri)) {
+                // Add GraphQL-only release
+                merged.push(gqlRelease);
+            }
+        });
+
+        // Sort by date (newest first)
+        merged.sort((a, b) => {
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return b.date - a.date;
+        });
+
+        console.log(`[DataExtractor] Merged ${merged.length} total releases`);
+        return merged;
+    }
+
+    normalizeType(rawType) {
+        if (!rawType) return null;
+
+        const value = String(rawType).toLowerCase();
+        if (value.includes('single')) return 'Single';
+        if (value === 'ep' || value.includes(' ep') || value.includes('extended play')) return 'EP';
+        if (value.includes('compilation')) return 'Compilation';
+        if (value.includes('album')) return 'Album';
+        return null;
+    }
+
+    shouldReplaceType(domType, gqlType) {
+        if (!gqlType) return false;
+        const normalizedDom = this.normalizeType(domType);
+        const normalizedGql = this.normalizeType(gqlType);
+        if (!normalizedGql) return false;
+        if (!normalizedDom) return true;
+
+        // Prefer non-Album GraphQL type over generic Album from DOM.
+        if (normalizedDom === 'Album' && normalizedGql !== 'Album') {
+            return true;
+        }
+
+        return normalizedDom !== normalizedGql;
+    }
+
+    isDateMorePrecise(candidate, current) {
+        if (!candidate?.date) return false;
+        if (!current?.date) return true;
+
+        const score = { none: 0, year: 1, month: 2, day: 3 };
+        const candidateScore = score[candidate.datePrecision || 'none'] || 0;
+        const currentScore = score[current.datePrecision || 'none'] || 0;
+        return candidateScore > currentScore;
+    }
+
+    /**
+     * Extract releases with GraphQL fallback
+     * @param {HTMLElement} container - DOM container
+     * @param {string} artistId - Artist ID for GraphQL fallback
+     * @returns {Promise<Array>} Array of release objects
+     */
+    async extractWithFallback(container, artistId) {
+        // First try DOM extraction
+        const domReleases = this.extractFromDOM(container);
+
+        // Check if DOM data is incomplete (missing dates/types)
+        const isIncomplete = domReleases.some(r => !r.date || !r.type || r.datePrecision === 'year' || r.datePrecision === 'none');
+
+        if (isIncomplete || domReleases.length === 0) {
+            console.log('[DataExtractor] DOM data incomplete, using GraphQL fallback');
+            const graphqlReleases = await this.fetchFromGraphQL(artistId);
+
+            // Merge both sources
+            return this.mergeData(domReleases, graphqlReleases);
+        }
+
+        return domReleases;
+    }
+}
+
+// ========== modules/views/Horizontal.js ==========
+class HorizontalView {
+    constructor(core) {
+        this.core = core;
+    }
+
+    render(container, releases) {
+        // Configure container for horizontal scrolling
+        container.classList.add('timeline--horizontal');
+        container.classList.remove('timeline--vertical');
+        
+        // Ensure horizontal scrollbar (slider) appears at the bottom
+        container.style.overflowX = 'auto';
+        container.style.overflowY = 'hidden';
+        container.style.display = 'block';
+
+        const proportionalSpacing = this.core.config.get('proportionalSpacing') || false;
+        if (proportionalSpacing) {
+            container.setAttribute('data-proportional-spacing', 'true');
+        }
+
+        // Create timeline track (the line)
+        const track = document.createElement('div');
+        track.className = 'timeline-track';
+        track.setAttribute('aria-hidden', true);
+        container.appendChild(track);
+
+        // Create cards container
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = 'timeline-cards';
+        cardsContainer.setAttribute('role', 'list');
+
+        // Render cards
+        releases.forEach((release, index) => {
+            const card = this.core.createCard(release, index);
+
+            // Apply proportional spacing
+            if (proportionalSpacing && index > 0) {
+                const spacing = this.core.calculateSpacing(releases[index - 1], release);
+                card.style.marginLeft = `${spacing}px`;
+            }
+
+            cardsContainer.appendChild(card);
+        });
+
+        container.appendChild(cardsContainer);
+
+        // Add horizontal specific interactions
+        if (this.core.config.get('showScrollButtons')) {
+            this.addScrollButtons(container);
+        }
+        this.addMouseWheelScroll(container);
+    }
+
+    /**
+     * Add scroll buttons (Left/Right arrows)
+     */
+    addScrollButtons(container) {
+        // Left scroll button
+        const leftButton = document.createElement('button');
+        leftButton.className = 'timeline-scroll-button timeline-scroll-button--left';
+        leftButton.setAttribute('aria-label', 'Scroll left');
+        leftButton.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>`;
+
+        // Right scroll button
+        const rightButton = document.createElement('button');
+        rightButton.className = 'timeline-scroll-button timeline-scroll-button--right';
+        rightButton.setAttribute('aria-label', 'Scroll right');
+        rightButton.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`;
+
+        const scrollAmount = 250;
+
+        leftButton.addEventListener('click', () => {
+            container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        });
+
+        rightButton.addEventListener('click', () => {
+            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        });
+
+        const updateButtonStates = () => {
+            const isAtStart = container.scrollLeft <= 0;
+            const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 1;
+            leftButton.disabled = isAtStart;
+            rightButton.disabled = isAtEnd;
+        };
+
+        // Initial state and listeners
+        updateButtonStates();
+        container.addEventListener('scroll', DOMUtils.debounce(updateButtonStates, 100));
+
+        container.appendChild(leftButton);
+        container.appendChild(rightButton);
+    }
+
+    /**
+     * Add mouse wheel horizontal scroll support
+     */
+    addMouseWheelScroll(container) {
+        const handleWheel = DOMUtils.debounce((e) => {
+            // Only handle horizontal scroll if not already scrolling vertically
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                container.scrollBy({
+                    left: e.deltaY,
+                    behavior: 'smooth'
+                });
+            }
+        }, 10);
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+    }
+}
+
+// ========== modules/views/Vertical.js ==========
+class VerticalView {
+    constructor(core) {
+        this.core = core;
+    }
+
+    render(container, releases) {
+        // Configure container for Vertical Winding (Snake) layout
+        container.classList.add('timeline--vertical-snake');
+        container.classList.remove('timeline--horizontal');
+        
+        container.style.overflowX = 'hidden';
+        container.style.overflowY = 'auto';
+        container.style.maxHeight = 'calc(100vh - 220px)';
+        container.style.display = 'block';
+
+        // Create cards container
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = 'timeline-snake-container';
+        
+        // Group releases into rows
+        const itemsPerRow = 4; // Adjust based on your preference
+        const rows = [];
+        
+        for (let i = 0; i < releases.length; i += itemsPerRow) {
+            rows.push(releases.slice(i, i + itemsPerRow));
+        }
+
+        // Render Rows
+        rows.forEach((rowItems, rowIndex) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'timeline-snake-row';
+            
+            // Alternate direction: Odd rows (index 1, 3...) go Right-to-Left
+            const isReverse = rowIndex % 2 !== 0;
+            if (isReverse) {
+                rowDiv.classList.add('timeline-snake-row--reverse');
+                // We reverse the items array for rendering so the DOM order matches visual order 
+                // (simpler for spacing calculation)
+                rowItems.reverse();
+            }
+
+            // Create connector line container for this row
+            const line = document.createElement('div');
+            line.className = 'timeline-snake-line';
+            rowDiv.appendChild(line);
+
+            rowItems.forEach((release, index) => {
+                const card = this.core.createCard(release, index + (rowIndex * itemsPerRow));
+
+                rowDiv.appendChild(card);
+            });
+
+            cardsContainer.appendChild(rowDiv);
+            
+            // Add "Turn" connectors between rows
+            if (rowIndex < rows.length - 1) {
+                const turn = document.createElement('div');
+                turn.className = isReverse 
+                    ? 'timeline-snake-turn timeline-snake-turn--left' 
+                    : 'timeline-snake-turn timeline-snake-turn--right';
+                cardsContainer.appendChild(turn);
+            }
+        });
+
+        container.appendChild(cardsContainer);
+        this.addMouseWheelScroll(container);
+    }
+
+    addMouseWheelScroll(container) {
+        const handleWheel = DOMUtils.debounce((e) => {
+            const verticalIntent = Math.abs(e.deltaY) >= Math.abs(e.deltaX);
+            if (!verticalIntent) return;
+
+            const atTop = container.scrollTop <= 0;
+            const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 1;
+
+            // Let Spotify page scroll continue when timeline is already at an edge.
+            if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
+                return;
+            }
+
+            e.preventDefault();
+            container.scrollBy({ top: e.deltaY, behavior: 'auto' });
+        }, 8);
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+    }
+}
+
+// ========== modules/options/FilterManager.js ==========
+/**
+ * FilterManager - Handles detection and observation of Spotify's discography filters
+ * (Albums, Singles & EPs, Compilations, All)
+ */
+class FilterManager {
+    constructor(core) {
+        this.core = core;
+        this.currentFilter = 'all';
+        this._handleFilterChange = this.handleFilterChange.bind(this);
+        this.filterObserver = null;
+    }
+
+    /**
+     * Initialize filter detection and observation
+     * @param {HTMLElement} discographyContainer - The discography container element
+     */
+    initialize(discographyContainer) {
+        this.discographyContainer = discographyContainer;
+        this.detectCurrentFilter();
+        this.observeFilterChanges();
+    }
+
+    /**
+     * Clean up observers and listeners
+     */
+    destroy() {
+        if (this.filterObserver) {
+            this.filterObserver.disconnect();
+            this.filterObserver = null;
+        }
+        
+        // Remove tab click listeners
+        const tabContainer = this.findTabContainer();
+        if (tabContainer) {
+            tabContainer.removeEventListener('click', this._handleFilterChange);
+        }
+    }
+
+    /**
+     * Get the current active filter
+     * @returns {string} Current filter ('all', 'albums', 'singles', 'compilations')
+     */
+    getCurrentFilter() {
+        return this.currentFilter;
+    }
+
+    /**
+     * Detect the current filter from URL or active tab
+     */
+    detectCurrentFilter() {
+        const pathname = window.location.pathname;
+        
+        // Check URL patterns
+        if (pathname.includes('/discography/album')) {
+            this.currentFilter = 'albums';
+        } else if (pathname.includes('/discography/single') || pathname.includes('/discography/ep')) {
+            this.currentFilter = 'singles';
+        } else if (pathname.includes('/discography/compilation')) {
+            this.currentFilter = 'compilations';
+        } else {
+            // Check for active tab in DOM
+            this.currentFilter = this.detectFilterFromTabs() || 'all';
+        }
+        
+        console.log('[FilterManager] Detected filter:', this.currentFilter);
+    }
+
+    /**
+     * Detect filter from active tab element
+     * @returns {string|null} Filter type or null
+     */
+    detectFilterFromTabs() {
+        const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+        if (!activeTab) return null;
+
+        const tabText = activeTab.textContent?.toLowerCase() || '';
+        
+        if (tabText.includes('album') && !tabText.includes('single')) {
+            return 'albums';
+        } else if (tabText.includes('single') || tabText.includes('ep')) {
+            return 'singles';
+        } else if (tabText.includes('compilation')) {
+            return 'compilations';
+        }
+        
+        return null;
+    }
+
+    /**
+     * Find the tab container element
+     * @returns {HTMLElement|null} Tab container or null
+     */
+    findTabContainer() {
+        const tabSelectors = [
+            '[role="tablist"]',
+            '[data-testid="discography-tabs"]',
+            '.discography-tabs',
+        ];
+
+        for (const selector of tabSelectors) {
+            const container = document.querySelector(selector);
+            if (container) return container;
+        }
+        return null;
+    }
+
+    /**
+     * Set up observers for filter changes (tab clicks, URL changes, DOM mutations)
+     */
+    observeFilterChanges() {
+        // Watch for tab clicks
+        const tabContainer = this.findTabContainer();
+        if (tabContainer) {
+            tabContainer.addEventListener('click', this._handleFilterChange);
+        }
+
+        // Observe DOM changes for dynamic content updates
+        this.filterObserver = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' || mutation.type === 'attributes') {
+                    const gridChanged = this.isGridMutation(mutation);
+                    
+                    if (gridChanged && this.core.state.isTimelineActive) {
+                        this.handleFilterChange();
+                    }
+                }
+            }
+        });
+
+        if (this.discographyContainer) {
+            this.filterObserver.observe(this.discographyContainer, { 
+                childList: true, 
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['aria-selected', 'class']
+            });
+        }
+
+        // Listen for Spicetify history changes
+        this.setupHistoryListener();
+    }
+
+    /**
+     * Check if a mutation affects the grid content
+     * @param {MutationRecord} mutation - The mutation record
+     * @returns {boolean} True if grid was affected
+     */
+    isGridMutation(mutation) {
+        return mutation.target.classList?.contains('main-gridContainer-gridContainer') ||
+               mutation.target.querySelector?.('[data-testid="grid-container"]');
+    }
+
+    /**
+     * Set up listener for Spicetify history/navigation changes
+     */
+    setupHistoryListener() {
+        if (Spicetify.Platform?.History) {
+            Spicetify.Platform.History.listen((location) => {
+                if (location.pathname.includes('/discography')) {
+                    setTimeout(() => this.handleFilterChange(), 300);
+                }
+            });
+        }
+    }
+
+    /**
+     * Handle filter/tab change - notify core to re-render
+     * @param {Event} [event] - Click event (optional)
+     */
+    async handleFilterChange(event) {
+        const oldFilter = this.currentFilter;
+        this.detectCurrentFilter();
+
+        // If filter changed and timeline is active, notify core
+        if (this.core.state.isTimelineActive && (oldFilter !== this.currentFilter || event)) {
+            console.log('[FilterManager] Filter changed from', oldFilter, 'to', this.currentFilter);
+            
+            // Wait for Spotify to update the DOM
+            await this.waitForDOMUpdate();
+            
+            // Notify core to refresh
+            this.core.onFilterChange();
+        }
+    }
+
+    /**
+     * Wait for Spotify's DOM to update after filter change
+     * @returns {Promise<void>}
+     */
+    async waitForDOMUpdate() {
+        return new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    /**
+     * Find the updated grid container after filter change
+     * @returns {Promise<HTMLElement|null>} Updated container or null
+     */
+    async findUpdatedGridContainer() {
+        const gridSelectors = [
+            '[data-testid="grid-container"]',
+            '.main-gridContainer-gridContainer',
+            '[class*="grid"]',
+        ];
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+            for (const selector of gridSelectors) {
+                const container = this.discographyContainer?.querySelector(selector) ||
+                                document.querySelector(selector);
+                if (container && container !== this.core.state.originalGridContainer) {
+                    return container;
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return null;
+    }
+}
+
+// ========== modules/options/MenuInjector.js ==========
+/**
+ * MenuInjector - Handles injection of Timeline options into Spotify's dropdown menu
+ */
+class MenuInjector {
+    constructor(core) {
+        this.core = core;
+        this.menuObserver = null;
+        this.currentSortOrder = core.state.sortOrder || 'desc';
+        this._pollingInterval = null;
+    }
+
+    async initialize(container) {
+        console.log('[MenuInjector] Initializing...');
+        
+        // Wait for Spotify to render
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const comboboxButton = await this.findComboboxButton();
+        
+        if (!comboboxButton) {
+            console.warn('[MenuInjector] Combobox button not found, using fallback');
+            this.injectFallbackButton(container);
+            return;
+        }
+
+        console.log('[MenuInjector] ✓ Found combobox button');
+        this.core.state.update({ comboboxButton });
+        
+        // Strategy 1: Observer (Primary)
+        this.observeDropdownMenu();
+
+        // Strategy 2: Polling (Backup Safety Net)
+        // Checks every 1.5 seconds if the menu is open but we missed injecting it
+        this.startPolling();
+    }
+
+    destroy() {
+        this.removeInjectedOptions();
+        this.stopPolling();
+        if (this.menuObserver) {
+            this.menuObserver.disconnect();
+            this.menuObserver = null;
+        }
+    }
+
+    startPolling() {
+        this.stopPolling();
+        this._pollingInterval = setInterval(() => {
+            const menu = document.querySelector('ul[role="menu"], #sort-and-view-picker');
+            if (menu && this.isValidMenu(menu)) {
+                // Only try to inject if our option isn't there yet
+                if (!menu.querySelector('.timeline-menu-option')) {
+                    console.log('[MenuInjector] Menu found via polling (Observer missed it)');
+                    this.injectTimelineOption(menu);
+                }
+            }
+        }, 1500);
+    }
+
+    stopPolling() {
+        if (this._pollingInterval) {
+            clearInterval(this._pollingInterval);
+            this._pollingInterval = null;
+        }
+    }
+
+    /**
+     * Find the combobox button
+     */
+    async findComboboxButton() {
+        // Expanded selectors to handle different Spotify versions
+        const selectors = [
+            'button[aria-controls="sort-and-view-picker"]',
+            'button[role="combobox"][aria-haspopup="true"]',
+            'button[data-testid="sort-and-view-picker-button"]',
+            'button[aria-haspopup="listbox"]',
+            'button[aria-haspopup="menu"]',
+            // Try finding by button near the discography section
+            '[data-testid="artist-page"] button[aria-haspopup]',
+            '[data-testid="artist-page"] button[role="combobox"]',
+            // Generic combobox button
+            'button:has([class*="dropdown"], [class*="menu"], [class*="sort"], [class*="view"])'
+        ];
+
+        for (let attempt = 0; attempt < 30; attempt++) {
+            for (const selector of selectors) {
+                const button = document.querySelector(selector);
+                if (button) {
+                    // Validate it's likely the sort/view button
+                    const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
+                    const title = button.getAttribute('title')?.toLowerCase() || '';
+                    const text = button.textContent?.toLowerCase() || '';
+
+                    // Check if it looks like a sort/view button
+                    const isSortViewButton = ariaLabel.includes('sort') || ariaLabel.includes('view') ||
+                                           title.includes('sort') || title.includes('view') ||
+                                           text.includes('sort') || text.includes('view') ||
+                                           text.length === 0; // Icon-only buttons are common
+
+                    if (isSortViewButton) {
+                        console.log(`[MenuInjector] Found combobox via: ${selector}`);
+                        return button;
+                    }
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        return null;
+    }
+
+    /**
+     * Observe for dropdown menu
+     */
+    observeDropdownMenu() {
+        console.log('[MenuInjector] Setting up menu observer');
+        
+        this.menuObserver = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check the node itself
+                        if (this.isValidMenu(node)) {
+                            this.injectTimelineOption(node);
+                            return;
+                        }
+                        // Check children (Spotify often wraps the UL in a div)
+                        const menu = node.querySelector?.('ul[role="menu"]');
+                        if (menu && this.isValidMenu(menu)) {
+                            this.injectTimelineOption(menu);
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+
+        // Observe body for portals
+        this.menuObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    /**
+     * Validates if a node is the correct "Sort & View" menu
+     * Uses text content matching and structure validation
+     */
+    isValidMenu(node) {
+        // 1. Must be a menu-like element
+        const isMenu = (node.tagName === 'UL' || node.getAttribute?.('role') === 'menu') ||
+                       node.querySelector?.('ul[role="menu"]');
+
+        if (!isMenu) return false;
+
+        // 2. Check for menu items with specific keywords
+        const text = node.textContent || '';
+
+        // Must have at least one view option (Grid or List)
+        const hasViewOption = text.includes('Grid') || text.includes('List');
+
+        // Should have sort options (but be lenient - might be translated or have different names)
+        const hasSortLike = text.includes('Sort') || text.includes('Release') ||
+                           text.includes('Name') || text.length > 50;
+
+        // Valid if it has view options and looks like a sort menu
+        return hasViewOption && hasSortLike;
+    }
+
+    /**
+     * Inject Timeline option into menu
+     */
+    injectTimelineOption(menu) {
+        if (menu.querySelector('.timeline-menu-option')) {
+            this.updateMenuSelection(menu);
+            return;
+        }
+
+        console.log('[MenuInjector] Injecting Timeline option');
+
+        // Find Grid option
+        const menuItems = menu.querySelectorAll('li[role="presentation"]');
+        let gridItem = null;
+
+        for (const item of menuItems) {
+            const btn = item.querySelector('button[role="menuitemradio"]');
+            if (btn && btn.textContent?.toLowerCase().includes('grid')) {
+                gridItem = item;
+                break;
+            }
+        }
+
+        if (!gridItem) {
+            // Fallback: Use the last item if Grid isn't found
+            if (menuItems.length > 0) {
+                 gridItem = menuItems[menuItems.length - 1];
+            } else {
+                 return;
+            }
+        }
+
+        // Create Timeline option
+        const timelineItem = this.createTimelineMenuItem(gridItem);
+        
+        // Insert after Grid (or whatever item we found)
+        if (gridItem.nextSibling) {
+            gridItem.parentNode.insertBefore(timelineItem, gridItem.nextSibling);
+        } else {
+            gridItem.parentNode.appendChild(timelineItem);
+        }
+
+        this.handleSortOptions(menu);
+        this.updateMenuSelection(menu);
+        this.setupNativeOptionListeners(menu);
+    }
+
+    /**
+     * Create Timeline menu item matching Spotify's structure
+     */
+    createTimelineMenuItem(templateItem) {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'presentation');
+        li.className = templateItem.className;
+        li.classList.add('timeline-menu-option');
+
+        const templateButton = templateItem.querySelector('button');
+        const button = document.createElement('button');
+        button.className = templateButton ? templateButton.className : ''; 
+        button.setAttribute('role', 'menuitemradio');
+        button.setAttribute('aria-checked', this.core.state.isTimelineActive ? 'true' : 'false');
+        button.setAttribute('tabindex', '-1');
+
+        button.innerHTML = `
+            ${this.getTimelineIcon()}
+            <span class="e-91000-text encore-text-body-small ellipsis-one-line" data-encore-id="text" dir="auto">Timeline</span>
+            ${this.core.state.isTimelineActive ? this.getCheckmarkIcon() : ''}
+        `;
+
+        button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('[MenuInjector] Timeline clicked');
+            this.closeDropdown();
+            await this.core.viewSwitcher.switchToTimeline('timeline-horizontal');
+        });
+
+        li.appendChild(button);
+        return li;
+    }
+
+    handleSortOptions(menu) {
+        if (!this.core.state.isTimelineActive) return;
+        
+        const menuItems = menu.querySelectorAll('li[role="presentation"]');
+        
+        for (const item of menuItems) {
+            const button = item.querySelector('button[role="menuitemradio"]');
+            if (!button) continue;
+            
+            const text = button.textContent?.toLowerCase() || '';
+            
+            // Disable Name sort
+            if (text.includes('name')) {
+                button.style.opacity = '0.4';
+                button.style.pointerEvents = 'none';
+                button.setAttribute('aria-disabled', 'true');
+                item.classList.add('timeline-disabled-option');
+            }
+            
+            // Keep one release-date option and make it a direction toggle.
+            if (text.includes('release date')) {
+                this.decorateReleaseDateButton(button);
+            }
+        }
+    }
+
+    decorateReleaseDateButton(button) {
+        this.updateReleaseDateLabel(button);
+
+        if (button.dataset.timelineSortBound === 'true') return;
+        button.dataset.timelineSortBound = 'true';
+
+        button.addEventListener('click', async (e) => {
+            if (!this.core.state.isTimelineActive) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            this.currentSortOrder = this.currentSortOrder === 'desc' ? 'asc' : 'desc';
+            this.core.state.update({ sortOrder: this.currentSortOrder });
+            this.updateReleaseDateLabel(button);
+
+            this.closeDropdown();
+            await this.core.viewSwitcher.refresh();
+
+            const label = this.currentSortOrder === 'asc' ? 'Sorted oldest first' : 'Sorted latest first';
+            Spicetify.showNotification(label, false, 2000);
+        });
+    }
+
+    updateReleaseDateLabel(button) {
+        const arrow = this.currentSortOrder === 'asc' ? '↑' : '↓';
+        const span = button.querySelector('span[data-encore-id="text"]');
+        if (span) {
+            span.textContent = `Release date ${arrow}`;
+        }
+    }
+
+    closeDropdown() {
+        const btn = this.core.state.comboboxButton;
+        if (btn) btn.click();
+    }
+
+    setupNativeOptionListeners(menu) {
+        const items = menu.querySelectorAll('li[role="presentation"]');
+        
+        for (const item of items) {
+            if (item.classList.contains('timeline-menu-option')) continue;
+            
+            const btn = item.querySelector('button[role="menuitemradio"]');
+            if (!btn) continue;
+            
+            const text = btn.textContent?.toLowerCase() || '';
+            if (text.includes('grid') || text.includes('list')) {
+                btn.addEventListener('click', () => {
+                    if (this.core.state.isTimelineActive) {
+                        this.core.viewSwitcher.switchToGrid();
+                    }
+                });
+            }
+        }
+    }
+
+    updateMenuSelection(menu) {
+        const timelineBtn = menu.querySelector('.timeline-menu-option button');
+        if (timelineBtn) {
+            const isActive = this.core.state.isTimelineActive;
+            timelineBtn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+            
+            const checkmark = timelineBtn.querySelector('svg:last-child');
+             // Be careful not to remove the icon if it's the only svg
+            const isCheckmark = checkmark && !checkmark.classList.contains('e-91000-icon'); 
+
+            if (isActive && !isCheckmark) {
+                timelineBtn.insertAdjacentHTML('beforeend', this.getCheckmarkIcon());
+            } else if (!isActive && isCheckmark) {
+                checkmark.remove();
+            }
+        }
+
+        if (this.core.state.isTimelineActive) {
+            menu.querySelectorAll('li[role="presentation"]').forEach(item => {
+                if (item.classList.contains('timeline-menu-option')) return;
+                const btn = item.querySelector('button[role="menuitemradio"]');
+                if (!btn) return;
+                const text = btn.textContent?.toLowerCase() || '';
+                if (text.includes('grid') || text.includes('list')) {
+                    btn.setAttribute('aria-checked', 'false');
+                    // Try to find checkmark to remove
+                     const cm = btn.querySelector('svg:last-child');
+                     // Simple heuristic: checkmarks are usually the last child SVG
+                     if (cm && cm.innerHTML.includes('path')) cm.remove();
+                }
+            });
+        }
+    }
+
+    removeInjectedOptions() {
+        document.querySelectorAll('.timeline-menu-option, .timeline-disabled-option')
+            .forEach(el => el.remove());
+    }
+
+    injectFallbackButton(container) {
+        const actionBar = document.querySelector('[data-testid="action-bar-row"]') ||
+                         document.querySelector('[data-testid="action-bar"]');
+        
+        if (!actionBar || this.core.state.injectedButton) return;
+
+        const button = document.createElement('button');
+        button.className = 'timeline-fallback-button';
+        button.innerHTML = `${this.getTimelineIcon()} Timeline`;
+        button.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 500px;
+            color: #fff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+        `;
+        
+        button.addEventListener('click', () => this.core.viewSwitcher.handleButtonClick());
+        actionBar.appendChild(button);
+        this.core.state.update({ injectedButton: button });
+    }
+
+    findControlsBar(container) {
+        return document.querySelector('[data-testid="action-bar-row"]') ||
+               document.querySelector('[data-testid="action-bar"]');
+    }
+
+    getTimelineIcon() {
+        return `<svg data-encore-id="icon" role="img" aria-hidden="true" class="e-91000-icon e-91000-baseline" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 3a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm4 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm3 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM3.5 3h1m3 0h2m3 0h1" stroke="currentColor"/><path d="M14 4.5c0 2-2 3-6 3s-6 1-6 2" fill="none" stroke="currentColor"/><path d="M2 10.5c0 1 2 1.5 6 1.5s6-.5 6-1.5" fill="none" stroke="currentColor"/><circle cx="2" cy="13" r="1.5" fill="currentColor"/><circle cx="6" cy="13" r="1" stroke="currentColor" fill="none"/><circle cx="10" cy="13" r="1" stroke="currentColor" fill="none"/><circle cx="14" cy="13" r="1.5" fill="currentColor"/></svg>`;
+    }
+
+    getCheckmarkIcon() {
+        return `<svg role="img" aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M15.53 2.47a.75.75 0 0 1 0 1.06L4.907 14.153.47 9.716a.75.75 0 0 1 1.06-1.06l3.377 3.376L14.47 2.47a.75.75 0 0 1 1.06 0"></path></svg>`;
+    }
+}
+
+// ========== modules/options/ViewSwitcher.js ==========
+/**
+ * ViewSwitcher - Handles switching between Grid and Timeline views
+ */
+class ViewSwitcher {
+    constructor(core) {
+        this.core = core;
+    }
+
+    /**
+     * Handle fallback button click
+     */
+    async handleButtonClick() {
+        if (this.core.state.isTimelineActive) {
+            this.switchToGrid();
+        } else {
+            await this.switchToTimeline('timeline-horizontal');
+        }
+    }
+
+    /**
+     * Switch to a timeline view
+     * @param {string} viewType - 'timeline-horizontal' or 'timeline-vertical'
+     */
+    async switchToTimeline(viewType = 'timeline-horizontal') {
+        console.log('[ViewSwitcher] Switching to timeline:', viewType);
+
+        const orientation = viewType === 'timeline-vertical' ? 'vertical' : 'horizontal';
+        this.core.config.set('orientation', orientation);
+
+        // Extract releases from current content with fallback for precise types/dates.
+        let releases = await this.collectReleases();
+
+        if (!releases || releases.length === 0) {
+            Spicetify.showNotification('No releases found to display', true, 3000);
+            return;
+        }
+
+        // Apply sort order
+        releases = this.applySortOrder(releases);
+
+        // Hide original grid
+        if (this.core.state.originalGridContainer) {
+            this.core.state.originalGridContainer.style.display = 'none';
+        }
+
+        // Render timeline
+        this.core.renderTimeline(releases);
+
+        // Add view switcher controls
+        this.addViewControls();
+
+        // Update state
+        this.core.state.saveViewPref(viewType);
+        this.core.state.update({
+            isTimelineActive: true,
+            currentView: viewType
+        });
+
+        // Update fallback button if exists
+        this.updateFallbackButton(true);
+
+        const viewName = orientation === 'vertical' ? 'Snake' : 'Horizontal';
+        Spicetify.showNotification(`Timeline (${viewName}) activated`, false, 2000);
+    }
+
+    /**
+     * Add view switcher controls to timeline
+     */
+    addViewControls() {
+        const timelineContainer = this.core.state.timelineContainer;
+        if (!timelineContainer) return;
+
+        // Check if controls already exist
+        if (timelineContainer.querySelector('.timeline-view-controls')) {
+            return;
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'timeline-view-controls';
+        controls.setAttribute('role', 'group');
+        controls.setAttribute('aria-label', 'Timeline view options');
+
+        // Horizontal button
+        const horizButton = document.createElement('button');
+        horizButton.className = 'timeline-view-btn timeline-view-btn--horizontal';
+        horizButton.setAttribute('aria-label', 'Horizontal timeline view');
+        horizButton.setAttribute('title', 'Horizontal view');
+        horizButton.innerHTML = '⟷'; // Horizontal arrow
+
+        const isHorizontal = this.core.config.get('orientation') === 'horizontal';
+        if (isHorizontal) {
+            horizButton.classList.add('timeline-view-btn--active');
+            horizButton.setAttribute('aria-pressed', 'true');
+        }
+
+        horizButton.addEventListener('click', () => {
+            this.switchToTimeline('timeline-horizontal');
+        });
+
+        // Vertical button
+        const vertButton = document.createElement('button');
+        vertButton.className = 'timeline-view-btn timeline-view-btn--vertical';
+        vertButton.setAttribute('aria-label', 'Vertical/Snake timeline view');
+        vertButton.setAttribute('title', 'Vertical (Snake) view');
+        vertButton.innerHTML = '⟺'; // Vertical arrow
+
+        const isVertical = this.core.config.get('orientation') === 'vertical';
+        if (isVertical) {
+            vertButton.classList.add('timeline-view-btn--active');
+            vertButton.setAttribute('aria-pressed', 'true');
+        }
+
+        vertButton.addEventListener('click', () => {
+            this.switchToTimeline('timeline-vertical');
+        });
+
+        controls.appendChild(horizButton);
+        controls.appendChild(vertButton);
+
+        // Insert at top of timeline
+        timelineContainer.insertBefore(controls, timelineContainer.firstChild);
+    }
+
+    /**
+     * Apply sort order to releases
+     * @param {Array} releases - Array of release objects
+     * @returns {Array} Sorted releases
+     */
+    applySortOrder(releases) {
+        const sortOrder = this.core.state.sortOrder || 'desc';
+        
+        return [...releases].sort((a, b) => {
+            // Handle missing dates
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;  // Push items without dates to the end
+            if (!b.date) return -1;
+            
+            const dateA = a.date.getTime();
+            const dateB = b.date.getTime();
+            
+            if (sortOrder === 'asc') {
+                return dateA - dateB;  // Oldest first
+            } else {
+                return dateB - dateA;  // Newest first (default)
+            }
+        });
+    }
+
+    /**
+     * Switch back to grid view
+     */
+    switchToGrid() {
+        console.log('[ViewSwitcher] Switching to grid');
+        
+        // Remove timeline container
+        if (this.core.state.timelineContainer) {
+            this.core.state.timelineContainer.remove();
+            this.core.state.update({ timelineContainer: null });
+        }
+
+        // Show original grid
+        if (this.core.state.originalGridContainer) {
+            this.core.state.originalGridContainer.style.display = '';
+        }
+
+        // Update state
+        this.core.state.saveViewPref('grid');
+        this.core.state.update({ 
+            isTimelineActive: false,
+            currentView: 'grid'
+        });
+
+        // Update fallback button if exists
+        this.updateFallbackButton(false);
+
+        Spicetify.showNotification('Grid view activated', false, 2000);
+    }
+
+    /**
+     * Update the fallback button's active state
+     * @param {boolean} isActive - Whether timeline is active
+     */
+    updateFallbackButton(isActive) {
+        const button = this.core.state.injectedButton;
+        if (!button) return;
+
+        if (isActive) {
+            button.classList.add('timeline-view-button--active');
+            button.setAttribute('aria-selected', 'true');
+            button.style.backgroundColor = 'var(--spice-button-active, rgba(255,255,255,0.2))';
+        } else {
+            button.classList.remove('timeline-view-button--active');
+            button.setAttribute('aria-selected', 'false');
+            button.style.backgroundColor = 'var(--spice-button, rgba(255,255,255,0.07))';
+        }
+    }
+
+    /**
+     * Refresh the current view (re-extract and re-render)
+     */
+    async refresh() {
+        if (!this.core.state.isTimelineActive) return;
+
+        console.log('[ViewSwitcher] Refreshing timeline with sort order:', this.core.state.sortOrder);
+
+        let releases = await this.collectReleases();
+
+        if (releases && releases.length > 0) {
+            this.core.renderTimeline(releases);
+
+            // Re-add view controls after render
+            this.addViewControls();
+
+            Spicetify.showNotification(`Showing ${releases.length} releases`, false, 1500);
+        } else {
+            console.log('[ViewSwitcher] No releases found for current filter');
+        }
+    }
+
+    /**
+     * Load and normalize releases for current view/filter.
+     * Ensures lazy-loaded discography items are pulled in first.
+     */
+    async collectReleases() {
+        await this.ensureAllReleasesLoaded();
+
+        const releases = await this.core.dataExtractor.extractWithFallback(
+            this.core.state.originalGridContainer,
+            this.core.state.currentArtistId
+        );
+
+        const filtered = this.applyTypeFilter(releases);
+        return this.applySortOrder(filtered);
+    }
+
+    /**
+     * Apply currently selected Spotify filter tab to extracted releases.
+     */
+    applyTypeFilter(releases) {
+        const filter = this.core.filterManager.getCurrentFilter();
+        if (!filter || filter === 'all') return releases;
+
+        if (filter === 'albums') {
+            return releases.filter(r => (r.type || '').toLowerCase() === 'album');
+        }
+
+        if (filter === 'singles') {
+            return releases.filter(r => {
+                const type = (r.type || '').toLowerCase();
+                return type === 'single' || type === 'ep';
+            });
+        }
+
+        if (filter === 'compilations') {
+            return releases.filter(r => (r.type || '').toLowerCase() === 'compilation');
+        }
+
+        return releases;
+    }
+
+    /**
+     * Scroll the Spotify discography scroller to trigger lazy loading of older releases.
+     */
+    async ensureAllReleasesLoaded() {
+        const container = this.core.state.originalGridContainer;
+        if (!container) return;
+
+        const scroller = this.findScrollableParent(container) || document.scrollingElement;
+        if (!scroller) return;
+
+        const cardSelector = '[data-testid="card-item"], [data-testid="grid-card"], .main-card-card, article';
+        let lastHeight = -1;
+        let lastCount = -1;
+        let stableIterations = 0;
+
+        for (let i = 0; i < 24; i++) {
+            const currentHeight = scroller.scrollHeight;
+            const currentCount = container.querySelectorAll(cardSelector).length;
+
+            if (currentHeight === lastHeight && currentCount === lastCount) {
+                stableIterations += 1;
+            } else {
+                stableIterations = 0;
+            }
+
+            if (stableIterations >= 2) {
+                break;
+            }
+
+            scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'auto' });
+            await new Promise(resolve => setTimeout(resolve, 280));
+
+            lastHeight = currentHeight;
+            lastCount = currentCount;
+        }
+
+        scroller.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    findScrollableParent(element) {
+        let current = element;
+        while (current && current !== document.body) {
+            const style = window.getComputedStyle(current);
+            const canScroll = /(auto|scroll)/.test(style.overflowY || '');
+            if (canScroll && current.scrollHeight > current.clientHeight) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+
+        return document.querySelector('main [data-overlayscrollbars-viewport]') ||
+               document.querySelector('main .os-viewport') ||
+               document.querySelector('main');
+    }
+}
+
+// ========== modules/TimelineCore.js ==========
+/**
+ * TimelineCore - Orchestrates timeline view rendering and interactions
+ * 
+ * Delegates responsibilities to:
+ * - FilterManager: Filter detection & observation
+ * - MenuInjector: Dropdown menu injection
+ * - ViewSwitcher: View switching logic
+ * - HorizontalView/VerticalView: Rendering
+ */
+class TimelineCore {
+    constructor(config, state) {
+        this.config = config;
+        this.state = state;
+        this.dataExtractor = null;
+        this.discographyContainer = null;
+        this.releases = null;
+
+        // Initialize view renderers
+        this.horizontalView = new HorizontalView(this);
+        this.verticalView = new VerticalView(this);
+
+        // Initialize option managers
+        this.filterManager = new FilterManager(this);
+        this.menuInjector = new MenuInjector(this);
+        this.viewSwitcher = new ViewSwitcher(this);
+    }
+
+    /**
+     * Initialize the timeline core and all sub-modules
+     * @param {HTMLElement} discographyContainer - The discography container
+     * @param {DataExtractor} dataExtractor - Data extraction instance
+     */
+    async initialize(discographyContainer, dataExtractor) {
+        this.discographyContainer = discographyContainer;
+        this.dataExtractor = dataExtractor;
+
+        // Initialize sub-modules
+        this.filterManager.initialize(discographyContainer);
+        await this.menuInjector.initialize(discographyContainer);
+
+        // Restore previous view if it was a timeline
+        if (this.state.currentView === 'timeline-horizontal' || 
+            this.state.currentView === 'timeline-vertical') {
+            await this.viewSwitcher.switchToTimeline(this.state.currentView);
+        }
+    }
+
+    /**
+     * Clean up all resources
+     */
+    destroy() {
+        if (this.state.timelineContainer) {
+            this.state.timelineContainer.remove();
+        }
+        if (this.state.originalGridContainer) {
+            this.state.originalGridContainer.style.display = '';
+        }
+        
+        // Destroy sub-modules
+        this.filterManager.destroy();
+        this.menuInjector.destroy();
+        
+        this.discographyContainer = null;
+        this.dataExtractor = null;
+        this.releases = null;
+    }
+
+    /**
+     * Called by FilterManager when filter changes
+     */
+    async onFilterChange() {
+        // Find updated grid container
+        const newContainer = await this.filterManager.findUpdatedGridContainer();
+        if (newContainer) {
+            this.state.update({ originalGridContainer: newContainer });
+        }
+        
+        // Refresh the view
+        await this.viewSwitcher.refresh();
+    }
+
+    /**
+     * Render the timeline with given releases
+     * @param {Array} releases - Array of release objects
+     */
+    renderTimeline(releases) {
+        this.releases = releases;
+        
+        // Remove existing timeline
+        if (this.state.timelineContainer) {
+            this.state.timelineContainer.remove();
+        }
+
+        // Create new container
+        const container = document.createElement('div');
+        container.className = 'timeline-view';
+        container.setAttribute('role', 'region');
+        container.setAttribute('aria-label', 'Artist discography timeline');
+
+        // Add filter indicator
+        const currentFilter = this.filterManager.getCurrentFilter();
+        if (currentFilter !== 'all') {
+            container.setAttribute('data-filter', currentFilter);
+        }
+
+        // Render based on orientation
+        const orientation = this.config.get('orientation') || 'horizontal';
+        if (orientation === 'horizontal') {
+            this.horizontalView.render(container, releases);
+        } else {
+            this.verticalView.render(container, releases);
+        }
+
+        // Insert into DOM
+        this.state.originalGridContainer.parentNode.insertBefore(
+            container, 
+            this.state.originalGridContainer.nextSibling
+        );
+        this.state.update({ timelineContainer: container });
+    }
+
+    /**
+     * Create a timeline card element
+     * @param {Object} release - Release data object
+     * @param {number} index - Card index
+     * @returns {HTMLElement} Card element
+     */
+    createCard(release, index) {
+        const card = document.createElement('div');
+        card.className = 'timeline-card';
+        card.setAttribute('role', 'listitem');
+        card.dataset.uri = release.uri;
+        card.dataset.index = index;
+        card.dataset.type = release.type?.toLowerCase() || 'album';
+
+        if (release.isPlaying) {
+            card.classList.add('timeline-card--playing');
+            card.setAttribute('aria-current', 'true');
+        }
+
+        const dateText = release.date
+            ? release.date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' })
+            : 'Unknown Date';
+        const releaseTypeText = release.type || 'Release';
+
+        card.innerHTML = `
+            <div class="timeline-card__marker" aria-hidden="true"></div>
+            <div class="timeline-card__content">
+                <div class="timeline-card__image-wrapper">
+                    <img src="${release.image}" alt="${this.escapeHtml(release.name)}" 
+                         class="timeline-card__image" loading="lazy" />
+                    <button class="timeline-card__play-button" 
+                            aria-label="Play ${this.escapeHtml(release.name)}" 
+                            data-uri="${release.uri}">
+                        ${this.getPlayIcon()}
+                    </button>
+                </div>
+                <div class="timeline-card__info">
+                    <h3 class="timeline-card__title">${this.escapeHtml(release.name)}</h3>
+                    <div class="timeline-card__meta">
+                        <span class="timeline-card__type">${releaseTypeText}</span>
+                        <span class="timeline-card__separator">•</span>
+                        <time class="timeline-card__date" datetime="${release.date?.toISOString() || ''}">
+                            ${dateText}
+                        </time>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.attachCardListeners(card, release);
+        return card;
+    }
+
+    /**
+     * Attach event listeners to a card
+     * @param {HTMLElement} card - Card element
+     * @param {Object} release - Release data
+     */
+    attachCardListeners(card, release) {
+        // Play button
+        const playButton = card.querySelector('.timeline-card__play-button');
+        if (playButton) {
+            playButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                Spicetify.Player.playUri(release.uri);
+            });
+        }
+
+        // Card click - navigate to album
+        card.addEventListener('click', () => {
+            const albumID = release.uri.split(':')[2];
+            Spicetify.Platform.History.push(`/album/${albumID}`);
+        });
+
+        // Keyboard accessibility
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                card.click();
+            }
+        });
+    }
+
+    /**
+     * Calculate spacing between cards based on release dates
+     * @param {Object} prevRelease - Previous release
+     * @param {Object} currentRelease - Current release
+     * @returns {number} Spacing in pixels
+     */
+    calculateSpacing(prevRelease, currentRelease) {
+        const minSpacing = this.config.get('minSpacing') || 40;
+        const maxSpacing = this.config.get('maxSpacing') || 250;
+        const pixelsPerDay = 0.2;
+
+        if (!prevRelease.date || !currentRelease.date) return minSpacing;
+
+        const timeDiff = Math.abs(currentRelease.date - prevRelease.date);
+        const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+        const spacing = minSpacing + (daysDiff * pixelsPerDay);
+
+        return Math.max(minSpacing, Math.min(maxSpacing, spacing));
+    }
+
+    /**
+     * Escape HTML special characters
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped text
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Get play icon SVG
+     * @returns {string} SVG HTML
+     */
+    getPlayIcon() {
+        return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>`;
+    }
+}
+
+// ========== src/main.js ==========
+// NAME: Artist Discography Timeline
+// AUTHOR: AhmedHanyMohammed
+// DESCRIPTION: Visualize artist discography as an interactive timeline
+
+(async function main() {
+    // ========================================
+    // PHASE 1: Wait for Spicetify to be ready
+    // ========================================
+
+    function checkSpicetifyReady() {
+        const required = {
+            'Spicetify': typeof Spicetify !== 'undefined',
+            'Platform': Spicetify?.Platform,
+            'Player': Spicetify?.Player,
+        };
+
+        const missing = Object.entries(required)
+            .filter(([name, exists]) => !exists)
+            .map(([name]) => name);
+
+        return missing;
+    }
+
+    const missingComponents = checkSpicetifyReady();
+    if (missingComponents.length) {
+        console.log(`[Timeline] Waiting for Spicetify. Missing: ${missingComponents.join(', ')}`);
+        setTimeout(main, 100);
+        return;
+    }
+
+    console.log('[Timeline] ✓ Spicetify ready, initializing extension...');
+
+    // ========================================
+    // PHASE 2: Initialize all modules
+    // ========================================
+
+    const config = new Config();
+    const state = new State();
+    const dataExtractor = new DataExtractor();
+    const timelineCore = new TimelineCore(config, state);
+
+    // ========================================
+    // PHASE 3: Set up artist page detection
+    // ========================================
+
+    async function onArtistPageDetected(artistId) {
+        console.log(`[Timeline] Artist page detected: ${artistId}`);
+
+        try {
+            // Wait for the page content to load
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Wait for discography section to appear in DOM
+            const discographyContainer = await waitForDiscography();
+            
+            if (!discographyContainer) {
+                console.warn('[Timeline] No discography container found');
+                return;
+            }
+            
+            console.log('[Timeline] ✓ Discography container found:', discographyContainer);
+
+            // Store reference
+            state.update({ originalGridContainer: discographyContainer });
+
+            // Initialize timeline
+            await timelineCore.initialize(discographyContainer, dataExtractor);
+            console.log('[Timeline] ✓ Timeline initialized');
+
+        } catch (error) {
+            console.error('[Timeline] ✗ Error initializing timeline:', error);
+        }
+    }
+
+    /**
+     * Wait for discography section to load
+     * This function now properly waits for the grid container that holds album cards
+     */
+    async function waitForDiscography() {
+        console.log('[Timeline] Waiting for discography container...');
+        
+        // These selectors target the actual content container
+        const selectors = [
+            // Grid container that holds the cards
+            '[data-testid="grid-container"]',
+            'div[role="grid"]',
+            // Main grid container class
+            '.main-gridContainer-gridContainer',
+            // Section containing cards
+            'section[data-testid="artist-page"] [role="grid"]',
+            // Discography specific
+            '[data-testid="artist-discography"]',
+            // Card container
+            '.contentSpacing section',
+            // Fallback - any container with cards
+            'div[class*="grid"] div[class*="Card"]',
+        ];
+
+        // Try each selector with retries
+        for (let attempt = 0; attempt < 30; attempt++) {
+            for (const selector of selectors) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    // Verify it has album cards or is near them
+                    const hasCards = element.querySelector('[class*="Card"]') || 
+                                    element.closest('section')?.querySelector('[class*="Card"]');
+                    
+                    if (hasCards || attempt > 15) {                        
+                        // Return the parent that contains all cards
+                        const cardContainer = element.closest('section') || 
+                                            element.closest('[data-testid="grid-container"]') ||
+                                            element;
+                        return cardContainer;
+                    }
+                }
+            }
+            
+            // Also try finding by card presence
+            const cards = document.querySelectorAll('[class*="Card"][draggable="true"]');
+            if (cards.length > 0) {
+                const container = cards[0].closest('[data-testid="grid-container"]') ||
+                                cards[0].closest('div[role="grid"]') ||
+                                cards[0].closest('section') ||
+                                cards[0].parentElement?.parentElement;
+                if (container) {
+                    return container;
+                }
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        console.warn('[Timeline] Could not find discography container');
+        return null;
+    }
+
+    // ========================================
+    // PHASE 4: Start navigation listener
+    // ========================================
+
+    const navigator = new Navigator(state, onArtistPageDetected);
+    navigator.start();
+
+    // ========================================
+    // PHASE 5: Set up cleanup on page unload
+    // ========================================
+
+    window.addEventListener('beforeunload', () => {
+        console.log('[Timeline] Cleaning up...');
+        navigator.stop();
+        navigator.cleanup();
+        timelineCore.destroy();
+    });
+
+})();

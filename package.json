@@ -1,0 +1,15 @@
+{
+  "name": "artist-timeline",
+  "version": "1.0.0",
+  "description": "Visualize artist discography as an interactive timeline",
+  "main": "dist/artistTimeline.js",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.2"
+  },
+  "author": "AhmedHanyMohammed",
+  "license": "MIT"
+}
